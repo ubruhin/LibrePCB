@@ -24,6 +24,7 @@
 #include <QtCore>
 #include <QtWidgets>
 #include <QTranslator>
+#include <libxml/globals.h>
 #include "common/application.h"
 #include "common/debug.h"
 #include "common/exceptions.h"
@@ -67,6 +68,13 @@ static int appExec() noexcept
 
 int main(int argc, char* argv[])
 {
+    // Macro to check that the libxml version in use is compatible with
+    // the version the software has been compiled against
+    LIBXML_TEST_VERSION
+
+    // Init the libxml2 parser
+    xmlInitParser();
+
     Application app(argc, argv);
 
     // Set the organization / application names must be done very early because some other
@@ -158,6 +166,9 @@ int main(int argc, char* argv[])
                 return 0; // quit the application
         }
     } while (chooseAnotherWorkspace);
+
+    // Cleanup libxml2 ressources
+    xmlCleanupParser();
 
     return 0;
 }

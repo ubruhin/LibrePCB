@@ -46,6 +46,10 @@ unix:!macx {
     INSTALLS += target icon desktop mimexml mimedesktop
 }
 
+# add library "libxml2" with pkg-config
+CONFIG += link_pkgconfig
+PKGCONFIG += libxml-2.0
+
 TRANSLATIONS = \
     ../i18n/eda4u_de.ts \
     ../i18n/eda4u_de_CH.ts \
