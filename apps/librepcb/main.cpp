@@ -23,6 +23,7 @@
 #include <QtCore>
 #include <QtWidgets>
 #include <QTranslator>
+#include <libxml/globals.h>
 #include <librepcb/common/application.h>
 #include <librepcb/common/debug.h>
 #include <librepcb/common/exceptions.h>
@@ -184,7 +185,12 @@ static void installTranslations() noexcept
 
 static void init3rdPartyLibs() noexcept
 {
+    // Macro to check that the libxml version in use is compatible with
+    // the version the software has been compiled against
+    LIBXML_TEST_VERSION
 
+    // Init the libxml2 parser
+    xmlInitParser();
 }
 
 /*****************************************************************************************
@@ -193,7 +199,8 @@ static void init3rdPartyLibs() noexcept
 
 static void cleanup3rdPartyLibs() noexcept
 {
-
+    // Cleanup libxml2 ressources
+    xmlCleanupParser();
 }
 
 /*****************************************************************************************

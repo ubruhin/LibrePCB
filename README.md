@@ -55,11 +55,13 @@ To compile LibrePCB, you need the following software components:
 - [Qt](http://www.qt.io/download-open-source/) >= 5.2
 - [zlib](http://www.zlib.net/)
 - [OpenSSL](https://www.openssl.org/)
+- `pkg-config` (http://www.freedesktop.org/wiki/Software/pkg-config/)
+- `libxml2` / `libxml2-dev` (http://www.xmlsoft.org/index.html)
 
 #### Installation on Debian/Ubuntu/Mint
 
 ```bash
-sudo apt-get install git build-essential qt5-default qttools5-dev-tools libglu1-mesa-dev openssl zlib1g zlib1g-dev
+sudo apt-get install git build-essential qt5-default qttools5-dev-tools libglu1-mesa-dev openssl zlib1g zlib1g-dev pkg-config libxml2 libxml2-dev
 sudo apt-get install qt5-doc qtcreator # optional
 ```
 
@@ -86,6 +88,13 @@ with MSVC, so you must install following components with the Qt installer:
 
 - The MinGW compiler itself
 - The Qt libraries for MinGW
+
+You also need the following archives (* stands for the version number):
+`gettext-runtime_*_win32.zip, glib_*_win32.zip, pkg-config_*_win32.zip, zlib_*_win32.zip, libxml2_*_win32.zip, libxml2-dev_*_win32.zip`
+
+These archives can be downloaded from http://ftp.gnome.org/pub/gnome/binaries/win32/glib/ and http://ftp.gnome.org/pub/gnome/binaries/win32/dependencies/.
+
+All these archives contain a "bin" directory. Copy all these "bin" directories into your compiler's directory (for example C:\Qt\5.3\mingw482_32\). From the package "libxml2-dev" you need also to copy the directories "include" and "lib" into your compilers directory.
 
 ### Cloning
 

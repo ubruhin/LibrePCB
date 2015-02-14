@@ -36,6 +36,10 @@ unix:!macx {
     INSTALLS += target share
 }
 
+# add library "libxml2" with pkg-config
+CONFIG += link_pkgconfig
+PKGCONFIG += libxml-2.0
+
 # Note: The order of the libraries is very important for the linker!
 # Another order could end up in "undefined reference" errors!
 LIBS += \

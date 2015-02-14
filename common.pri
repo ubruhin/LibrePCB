@@ -35,6 +35,10 @@ lessThan(QT_MAJOR_VERSION, 5) {
 # c++11 is obligatory!
 CONFIG += c++11
 
+# "pkg-config" must be installed on your system, even if Qt assumes it isn't!
+# http://stackoverflow.com/questions/16972066/using-pkg-config-with-qt-creator-qmake-on-mac-osx
+QT_CONFIG -= no-pkg-config
+
 # enable compiler warnings
 CONFIG += warn_on
 QMAKE_CXXFLAGS += -Wextra
