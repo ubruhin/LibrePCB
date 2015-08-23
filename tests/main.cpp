@@ -1,7 +1,7 @@
 /*
- * EDA4U - Professional EDA for everyone!
+ * LibrePCB - Professional EDA for everyone!
  * Copyright (C) 2013 Urban Bruhin
- * http://eda4u.ubruhin.ch/
+ * http://librepcb.org/
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@
  ****************************************************************************************/
 
 #include <QtCore>
-#include <common/debug.h>
-#include <common/exceptions.h>
+#include <gmock/gmock.h>
+#include <librepcbcommon/debug.h>
 
 /*****************************************************************************************
  *  The Unit Testing Program
@@ -31,17 +31,11 @@
 
 int main(int argc, char *argv[])
 {
-    Q_UNUSED(argc);
-    Q_UNUSED(argv);
-    
-    Debug::instance(); // this creates the Debug object and installs the message handler.
-
-    // suppress messages from the application (we need only messages from the test framework)
-    qInstallMessageHandler(0); // remove the message handler from the Debug class
+    // disable the whole debug output (we want only the output from gtest)
     Debug::instance()->setDebugLevelLogFile(Debug::DebugLevel_t::Nothing);
     Debug::instance()->setDebugLevelStderr(Debug::DebugLevel_t::Nothing);
-    
-    // TODO
 
-    return 0;
+    // init gmock and run all tests
+    ::testing::InitGoogleMock(&argc, argv);
+    return RUN_ALL_TESTS();
 }

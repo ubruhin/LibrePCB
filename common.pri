@@ -17,12 +17,12 @@ UI_DIR = ui
 UI_HEADERS_DIR = ui
 UI_SOURCES_DIR = ui
 
-# Qt >= 5.2 is obligatory!
+# Qt >= 5.4 is obligatory!
 lessThan(QT_MAJOR_VERSION, 5) {
-    error("Qt version $$[QT_VERSION] is too old, should be version 5.2 or newer!")
+    error("Qt version $$[QT_VERSION] is too old, should be version 5.4 or newer!")
 } else {
-    lessThan(QT_MINOR_VERSION, 2) {
-        error("Qt version $$[QT_VERSION] is too old, should be version 5.2 or newer!")
+    lessThan(QT_MINOR_VERSION, 4) {
+        error("Qt version $$[QT_VERSION] is too old, should be version 5.4 or newer!")
     }
 }
 
@@ -32,3 +32,13 @@ CONFIG += c++11
 # "pkg-config" must be installed on your system, even if Qt assumes it isn't!
 # http://stackoverflow.com/questions/16972066/using-pkg-config-with-qt-creator-qmake-on-mac-osx
 QT_CONFIG -= no-pkg-config
+
+# enable compiler warnings
+CONFIG += warn_on
+QMAKE_CXXFLAGS += -Wextra
+QMAKE_CXXFLAGS_DEBUG += -Wextra
+
+# Define the application version
+DEFINES += APP_VERSION_MAJOR=0
+DEFINES += APP_VERSION_MINOR=1
+DEFINES += APP_VERSION_PATCH=0
