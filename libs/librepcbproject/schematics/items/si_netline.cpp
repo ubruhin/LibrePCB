@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "si_netline.h"
 #include "../schematic.h"
@@ -31,7 +30,12 @@
 #include "si_symbolpin.h"
 #include <librepcbcommon/fileio/xmldomelement.h>
 #include <librepcbcommon/graphics/graphicsscene.h>
+#include <librepcbcommon/scopeguard.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -39,58 +43,59 @@ namespace project {
  ****************************************************************************************/
 
 SI_NetLine::SI_NetLine(Schematic& schematic, const XmlDomElement& domElement) throw (Exception) :
-    SI_Base(), mSchematic(schematic), mGraphicsItem(nullptr), mPosition(0, 0),
-    mStartPoint(nullptr), mEndPoint(nullptr)
+    SI_Base(schematic), mPosition(), mUuid(), mStartPoint(nullptr), mEndPoint(nullptr),
+    mWidth()
 {
-    mUuid = domElement.getAttribute<QUuid>("uuid");
-    mWidth = domElement.getAttribute<Length>("width");
+    mUuid = domElement.getAttribute<Uuid>("uuid", true);
+    mWidth = domElement.getAttribute<Length>("width", true);
 
-    QUuid spUuid = domElement.getAttribute<QUuid>("start_point");
+    Uuid spUuid = domElement.getAttribute<Uuid>("start_point", true);
     mStartPoint = mSchematic.getNetPointByUuid(spUuid);
-    if(!mStartPoint)
-    {
-        throw RuntimeError(__FILE__, __LINE__, spUuid.toString(),
+    if(!mStartPoint) {
+        throw RuntimeError(__FILE__, __LINE__, spUuid.toStr(),
             QString(tr("Invalid net point UUID: \"%1\""))
-            .arg(spUuid.toString()));
+            .arg(spUuid.toStr()));
     }
 
-    QUuid epUuid = domElement.getAttribute<QUuid>("end_point");
+    Uuid epUuid = domElement.getAttribute<Uuid>("end_point", true);
     mEndPoint = mSchematic.getNetPointByUuid(epUuid);
-    if(!mEndPoint)
-    {
-        throw RuntimeError(__FILE__, __LINE__, epUuid.toString(),
+    if(!mEndPoint) {
+        throw RuntimeError(__FILE__, __LINE__, epUuid.toStr(),
             QString(tr("Invalid net point UUID: \"%1\""))
-            .arg(epUuid.toString()));
+            .arg(epUuid.toStr()));
     }
 
     init();
 }
 
-SI_NetLine::SI_NetLine(Schematic& schematic, SI_NetPoint& startPoint,
-                                   SI_NetPoint& endPoint, const Length& width) throw (Exception) :
-    SI_Base(), mSchematic(schematic), mGraphicsItem(nullptr),
-    mStartPoint(&startPoint), mEndPoint(&endPoint), mWidth(width)
+SI_NetLine::SI_NetLine(Schematic& schematic, SI_NetPoint& startPoint, SI_NetPoint& endPoint,
+                       const Length& width) throw (Exception) :
+    SI_Base(schematic), mPosition(), mUuid(Uuid::createRandom()), mStartPoint(&startPoint),
+    mEndPoint(&endPoint), mWidth(width)
 {
-    mUuid = QUuid::createUuid().toString(); // generate random UUID
     init();
 }
 
 void SI_NetLine::init() throw (Exception)
 {
-    if(mWidth < 0)
-    {
+    if(mWidth < 0) {
         throw RuntimeError(__FILE__, __LINE__, mWidth.toMmString(),
             QString(tr("Invalid net line width: \"%1\"")).arg(mWidth.toMmString()));
     }
 
     // check if both netpoints have the same netsignal
-    if (mStartPoint->getNetSignal() != mEndPoint->getNetSignal())
-    {
+    if (&mStartPoint->getNetSignal() != &mEndPoint->getNetSignal()) {
         throw LogicError(__FILE__, __LINE__, QString(),
-            tr("SchematicNetLine: endpoints netsignal mismatch"));
+            tr("SI_NetLine: endpoints netsignal mismatch."));
     }
 
-    mGraphicsItem = new SGI_NetLine(*this);
+    // check if both netpoints are different
+    if (mStartPoint == mEndPoint) {
+        throw LogicError(__FILE__, __LINE__, QString(),
+            tr("SI_NetLine: both endpoints are the same."));
+    }
+
+    mGraphicsItem.reset(new SGI_NetLine(*this));
     updateLine();
 
     if (!checkAttributesValidity()) throw LogicError(__FILE__, __LINE__);
@@ -98,27 +103,22 @@ void SI_NetLine::init() throw (Exception)
 
 SI_NetLine::~SI_NetLine() noexcept
 {
-    delete mGraphicsItem;       mGraphicsItem = 0;
+    mGraphicsItem.reset();
 }
 
 /*****************************************************************************************
  *  Getters
  ****************************************************************************************/
 
-Project& SI_NetLine::getProject() const noexcept
+NetSignal& SI_NetLine::getNetSignal() const noexcept
 {
-    return mSchematic.getProject();
-}
-
-NetSignal* SI_NetLine::getNetSignal() const noexcept
-{
-    Q_ASSERT(mStartPoint->getNetSignal() == mEndPoint->getNetSignal());
+    Q_ASSERT(&mStartPoint->getNetSignal() == &mEndPoint->getNetSignal());
     return mStartPoint->getNetSignal();
 }
 
 bool SI_NetLine::isAttachedToSymbol() const noexcept
 {
-    return (mStartPoint->isAttached() || mEndPoint->isAttached());
+    return (mStartPoint->isAttachedToPin() || mEndPoint->isAttachedToPin());
 }
 
 /*****************************************************************************************
@@ -128,32 +128,47 @@ bool SI_NetLine::isAttachedToSymbol() const noexcept
 void SI_NetLine::setWidth(const Length& width) noexcept
 {
     Q_ASSERT(width >= 0);
-    mWidth = width;
-    mGraphicsItem->updateCacheAndRepaint();
+    if ((width != mWidth) && (width >= 0)) {
+        mWidth = width;
+        mGraphicsItem->updateCacheAndRepaint();
+    }
 }
 
 /*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
 
-void SI_NetLine::updateLine() noexcept
-{
-    mPosition = (mStartPoint->getPosition() + mEndPoint->getPosition()) / 2;
-    mGraphicsItem->updateCacheAndRepaint();
-}
-
 void SI_NetLine::addToSchematic(GraphicsScene& scene) throw (Exception)
 {
-    mStartPoint->registerNetLine(*this);
-    mEndPoint->registerNetLine(*this);
-    scene.addItem(*mGraphicsItem);
+    if (isAddedToSchematic() || (&mStartPoint->getNetSignal() != &mEndPoint->getNetSignal())) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mStartPoint->registerNetLine(*this); // can throw
+    auto sg = scopeGuard([&](){mStartPoint->unregisterNetLine(*this);});
+    mEndPoint->registerNetLine(*this); // can throw
+    mHighlightChangedConnection = connect(&getNetSignal(), &NetSignal::highlightedChanged,
+                                          [this](){mGraphicsItem->update();});
+    SI_Base::addToSchematic(scene, *mGraphicsItem);
+    sg.dismiss();
 }
 
 void SI_NetLine::removeFromSchematic(GraphicsScene& scene) throw (Exception)
 {
-    scene.removeItem(*mGraphicsItem);
-    mStartPoint->unregisterNetLine(*this);
-    mEndPoint->unregisterNetLine(*this);
+    if ((!isAddedToSchematic()) || (&mStartPoint->getNetSignal() != &mEndPoint->getNetSignal())) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mEndPoint->unregisterNetLine(*this); // can throw
+    auto sg = scopeGuard([&](){mEndPoint->registerNetLine(*this);});
+    mStartPoint->unregisterNetLine(*this); // can throw
+    disconnect(mHighlightChangedConnection);
+    SI_Base::removeFromSchematic(scene, *mGraphicsItem);
+    sg.dismiss();
+}
+
+void SI_NetLine::updateLine() noexcept
+{
+    mPosition = (mStartPoint->getPosition() + mEndPoint->getPosition()) / 2;
+    mGraphicsItem->updateCacheAndRepaint();
 }
 
 XmlDomElement* SI_NetLine::serializeToXmlDomElement() const throw (Exception)
@@ -201,3 +216,4 @@ bool SI_NetLine::checkAttributesValidity() const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

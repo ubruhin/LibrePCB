@@ -20,10 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "xmldomdocument.h"
 #include "xmldomelement.h"
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -73,10 +77,16 @@ XmlDomDocument::~XmlDomDocument() noexcept
  *  Getters
  ****************************************************************************************/
 
+bool XmlDomDocument::hasFileVersion() const noexcept
+{
+    Q_ASSERT(mRootElement != nullptr);
+    return mRootElement->hasAttribute("version");
+}
+
 int XmlDomDocument::getFileVersion() const throw (Exception)
 {
     Q_ASSERT(mRootElement != nullptr);
-    return mRootElement->getAttribute<uint>("version"); // use "uint" to automatically check for >= 0
+    return mRootElement->getAttribute<uint>("version", true); // use "uint" to automatically check for >= 0
 }
 
 /*****************************************************************************************
@@ -101,9 +111,11 @@ QByteArray XmlDomDocument::toByteArray() const noexcept
     doc.implementation().setInvalidDataPolicy(QDomImplementation::ReturnNullNode);
     doc.setContent(QString("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"));
     doc.appendChild(mRootElement->toQDomElement(doc));
-    return doc.toByteArray(4);
+    return doc.toByteArray(1); // indent only 1 space to save disk space
 }
 
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

@@ -20,63 +20,50 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdnetsignalremove.h"
 #include "../netsignal.h"
 #include "../circuit.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdNetSignalRemove::CmdNetSignalRemove(Circuit& circuit, NetSignal& netsignal,
-                                     UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Remove netsignal"), parent),
+CmdNetSignalRemove::CmdNetSignalRemove(Circuit& circuit, NetSignal& netsignal) noexcept :
+    UndoCommand(tr("Remove netsignal")),
     mCircuit(circuit), mNetSignal(netsignal)
 {
 }
 
 CmdNetSignalRemove::~CmdNetSignalRemove() noexcept
 {
-    if (isExecuted())
-        delete &mNetSignal;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdNetSignalRemove::redo() throw (Exception)
+bool CmdNetSignalRemove::performExecute() throw (Exception)
 {
-    mCircuit.removeNetSignal(mNetSignal); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mCircuit.addNetSignal(mNetSignal);
-        throw;
-    }
+    return true;
 }
 
-void CmdNetSignalRemove::undo() throw (Exception)
+void CmdNetSignalRemove::performUndo() throw (Exception)
 {
-    mCircuit.addNetSignal(mNetSignal); // throws an exception on error
+    mCircuit.addNetSignal(mNetSignal); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mCircuit.removeNetSignal(mNetSignal);
-        throw;
-    }
+void CmdNetSignalRemove::performRedo() throw (Exception)
+{
+    mCircuit.removeNetSignal(mNetSignal); // can throw
 }
 
 /*****************************************************************************************
@@ -84,3 +71,4 @@ void CmdNetSignalRemove::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

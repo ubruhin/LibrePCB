@@ -17,32 +17,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BOARDEDITOR_H
-#define PROJECT_BOARDEDITOR_H
+#ifndef LIBREPCB_PROJECT_BOARDEDITOR_H
+#define LIBREPCB_PROJECT_BOARDEDITOR_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/graphics/if_graphicsvieweventhandler.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class GraphicsView;
 class GridProperties;
 
 namespace project {
+
 class ProjectEditor;
 class Project;
 class Board;
 class ErcMsgDock;
 class UnplacedComponentsDock;
+class BoardLayersDock;
 class BES_FSM;
-}
+class ComponentInstance;
 
 namespace Ui {
 class BoardEditor;
@@ -51,8 +54,6 @@ class BoardEditor;
 /*****************************************************************************************
  *  Class BoardEditor
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BoardEditor class
@@ -72,7 +73,6 @@ class BoardEditor final : public QMainWindow, public IF_GraphicsViewEventHandler
         Project& getProject() const noexcept {return mProject;}
         int getActiveBoardIndex() const noexcept {return mActiveBoardIndex;}
         Board* getActiveBoard() const noexcept;
-        const GridProperties& getGridProperties() const noexcept {return *mGridProperties;}
 
         // Setters
         bool setActiveBoardIndex(int index) noexcept;
@@ -97,11 +97,13 @@ class BoardEditor final : public QMainWindow, public IF_GraphicsViewEventHandler
         // Actions
         void on_actionProjectClose_triggered();
         void on_actionNewBoard_triggered();
+        void on_actionCopyBoard_triggered();
         void on_actionUndo_triggered();
         void on_actionRedo_triggered();
         void on_actionGrid_triggered();
         void on_actionExportAsPdf_triggered();
         void on_actionProjectProperties_triggered();
+        void on_tabBar_currentChanged(int index);
         void boardListActionGroupTriggered(QAction* action);
 
 
@@ -125,7 +127,6 @@ class BoardEditor final : public QMainWindow, public IF_GraphicsViewEventHandler
         Project& mProject;
         Ui::BoardEditor* mUi;
         GraphicsView* mGraphicsView;
-        GridProperties* mGridProperties;
 
         // Misc
         int mActiveBoardIndex;
@@ -135,11 +136,17 @@ class BoardEditor final : public QMainWindow, public IF_GraphicsViewEventHandler
         // Docks
         ErcMsgDock* mErcMsgDock;
         UnplacedComponentsDock* mUnplacedComponentsDock;
+        BoardLayersDock* mBoardLayersDock;
 
         // Finite State Machine
         BES_FSM* mFsm;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BOARDEDITOR_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BOARDEDITOR_H

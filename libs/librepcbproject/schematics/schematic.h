@@ -17,15 +17,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SCHEMATIC_H
-#define PROJECT_SCHEMATIC_H
+#ifndef LIBREPCB_PROJECT_SCHEMATIC_H
+#define LIBREPCB_PROJECT_SCHEMATIC_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/if_attributeprovider.h>
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include <librepcbcommon/units/all_length_units.h>
@@ -33,8 +33,9 @@
 #include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class GridProperties;
 class GraphicsView;
@@ -42,33 +43,31 @@ class GraphicsScene;
 class SmartXmlFile;
 
 namespace project {
+
 class Project;
 class NetSignal;
-class GenCompInstance;
+class ComponentInstance;
 class SI_Base;
 class SI_Symbol;
 class SI_SymbolPin;
 class SI_NetPoint;
 class SI_NetLine;
 class SI_NetLabel;
-}
 
 /*****************************************************************************************
  *  Class Schematic
  ****************************************************************************************/
 
-namespace project {
-
 /**
  * @brief The Schematic class represents one schematic page of a project and is always
  * part of a circuit
  *
- * A schematic can contain following items (see project#SI_Base and project#SGI_Base):
- *  - netpoint:         project#SI_NetPoint    + project#SGI_NetPoint
- *  - netline:          project#SI_NetLine     + project#SGI_NetLine
- *  - netlabel:         project#SI_NetLabel    + project#SGI_NetLabel
- *  - symbol:           project#SI_Symbol      + project#SGI_Symbol
- *  - symbol pin:       project#SI_SymbolPin   + project#SGI_SymbolPin
+ * A schematic can contain following items (see #project#SI_Base and #project#SGI_Base):
+ *  - netpoint:         #project#SI_NetPoint    + #project#SGI_NetPoint
+ *  - netline:          #project#SI_NetLine     + #project#SGI_NetLine
+ *  - netlabel:         #project#SI_NetLabel    + #project#SGI_NetLabel
+ *  - symbol:           #project#SI_Symbol      + #project#SGI_Symbol
+ *  - symbol pin:       #project#SI_SymbolPin   + #project#SGI_SymbolPin
  *  - polygon:          TODO
  *  - ellipse:          TODO
  *  - text:             TODO
@@ -93,16 +92,18 @@ class Schematic final : public QObject, public IF_AttributeProvider,
          */
         enum ItemZValue {
             ZValue_Default = 0,         ///< this is the default value (behind all other items)
-            ZValue_Symbols,             ///< Z value for project#SymbolInstance items
-            ZValue_NetLabels,           ///< Z value for project#SchematicNetLabel items
-            ZValue_NetLines,            ///< Z value for project#SchematicNetLine items
-            ZValue_HiddenNetPoints,     ///< Z value for hidden project#SchematicNetPoint items
-            ZValue_VisibleNetPoints,    ///< Z value for visible project#SchematicNetPoint items
+            ZValue_Symbols,             ///< Z value for #project#SI_Symbol items
+            ZValue_NetLabels,           ///< Z value for #project#SI_NetLabel items
+            ZValue_NetLines,            ///< Z value for #project#SI_NetLine items
+            ZValue_HiddenNetPoints,     ///< Z value for hidden #project#SI_NetPoint items
+            ZValue_VisibleNetPoints,    ///< Z value for visible #project#SI_NetPoint items
         };
 
 
         // Constructors / Destructor
-        explicit Schematic(Project& project, const FilePath& filepath, bool restore, bool readOnly) throw (Exception) :
+        Schematic() = delete;
+        Schematic(const Schematic& other) = delete;
+        Schematic(Project& project, const FilePath& filepath, bool restore, bool readOnly) throw (Exception) :
             Schematic(project, filepath, restore, readOnly, false, QString()) {}
         ~Schematic() noexcept;
 
@@ -126,39 +127,33 @@ class Schematic final : public QObject, public IF_AttributeProvider,
         QList<SI_NetPoint*> getNetPointsAtScenePos(const Point& pos) const noexcept;
         QList<SI_NetLine*> getNetLinesAtScenePos(const Point& pos) const noexcept;
         QList<SI_SymbolPin*> getPinsAtScenePos(const Point& pos) const noexcept;
+        QList<SI_Base*> getAllItems() const noexcept;
 
         // Setters: General
         void setGridProperties(const GridProperties& grid) noexcept;
 
         // Getters: Attributes
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const QString& getName() const noexcept {return mName;}
         const QIcon& getIcon() const noexcept {return mIcon;}
 
         // Symbol Methods
-        SI_Symbol* getSymbolByUuid(const QUuid& uuid) const noexcept;
-        SI_Symbol* createSymbol(GenCompInstance& genCompInstance, const QUuid& symbolItem,
-                                const Point& position = Point(), const Angle& angle = Angle()) throw (Exception);
+        SI_Symbol* getSymbolByUuid(const Uuid& uuid) const noexcept;
         void addSymbol(SI_Symbol& symbol) throw (Exception);
         void removeSymbol(SI_Symbol& symbol) throw (Exception);
 
         // NetPoint Methods
-        SI_NetPoint* getNetPointByUuid(const QUuid& uuid) const noexcept;
-        SI_NetPoint* createNetPoint(NetSignal& netsignal, const Point& position) throw (Exception);
-        SI_NetPoint* createNetPoint(SI_SymbolPin& pin) throw (Exception);
+        SI_NetPoint* getNetPointByUuid(const Uuid& uuid) const noexcept;
         void addNetPoint(SI_NetPoint& netpoint) throw (Exception);
         void removeNetPoint(SI_NetPoint& netpoint) throw (Exception);
 
         // NetLine Methods
-        SI_NetLine* getNetLineByUuid(const QUuid& uuid) const noexcept;
-        SI_NetLine* createNetLine(SI_NetPoint& startPoint, SI_NetPoint& endPoint,
-                                  const Length& width) throw (Exception);
+        SI_NetLine* getNetLineByUuid(const Uuid& uuid) const noexcept;
         void addNetLine(SI_NetLine& netline) throw (Exception);
         void removeNetLine(SI_NetLine& netline) throw (Exception);
 
         // NetLabel Methods
-        SI_NetLabel* getNetLabelByUuid(const QUuid& uuid) const noexcept;
-        SI_NetLabel* createNetLabel(NetSignal& netsignal, const Point& position) throw (Exception);
+        SI_NetLabel* getNetLabelByUuid(const Uuid& uuid) const noexcept;
         void addNetLabel(SI_NetLabel& netlabel) throw (Exception);
         void removeNetLabel(SI_NetLabel& netlabel) throw (Exception);
 
@@ -177,6 +172,11 @@ class Schematic final : public QObject, public IF_AttributeProvider,
         bool getAttributeValue(const QString& attrNS, const QString& attrKey,
                                bool passToParents, QString& value) const noexcept;
 
+        // Operator Overloadings
+        Schematic& operator=(const Schematic& rhs) = delete;
+        bool operator==(const Schematic& rhs) noexcept {return (this == &rhs);}
+        bool operator!=(const Schematic& rhs) noexcept {return (this != &rhs);}
+
         // Static Methods
         static Schematic* create(Project& project, const FilePath& filepath,
                                  const QString& name) throw (Exception);
@@ -190,14 +190,8 @@ class Schematic final : public QObject, public IF_AttributeProvider,
 
     private:
 
-        // make some methods inaccessible...
-        Schematic();
-        Schematic(const Schematic& other);
-        Schematic& operator=(const Schematic& rhs);
-
-        // Private Methods
-        explicit Schematic(Project& project, const FilePath& filepath, bool restore,
-                           bool readOnly, bool create, const QString& newName) throw (Exception);
+        Schematic(Project& project, const FilePath& filepath, bool restore,
+                  bool readOnly, bool create, const QString& newName) throw (Exception);
         void updateIcon() noexcept;
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
@@ -210,15 +204,15 @@ class Schematic final : public QObject, public IF_AttributeProvider,
         // General
         Project& mProject; ///< A reference to the Project object (from the ctor)
         FilePath mFilePath; ///< the filepath of the schematic *.xml file (from the ctor)
-        SmartXmlFile* mXmlFile;
-        bool mAddedToProject;
+        QScopedPointer<SmartXmlFile> mXmlFile;
+        bool mIsAddedToProject;
 
-        GraphicsScene* mGraphicsScene;
+        QScopedPointer<GraphicsScene> mGraphicsScene;
+        QScopedPointer<GridProperties> mGridProperties;
         QRectF mViewRect;
-        GridProperties* mGridProperties;
 
         // Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         QString mName;
         QIcon mIcon;
 
@@ -228,6 +222,11 @@ class Schematic final : public QObject, public IF_AttributeProvider,
         QList<SI_NetLabel*> mNetLabels;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SCHEMATIC_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SCHEMATIC_H

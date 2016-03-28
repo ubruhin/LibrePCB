@@ -17,89 +17,105 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_NETSIGNAL_H
-#define PROJECT_NETSIGNAL_H
+#ifndef LIBREPCB_PROJECT_NETSIGNAL_H
+#define LIBREPCB_PROJECT_NETSIGNAL_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "../erc/if_ercmsgprovider.h"
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Circuit;
 class NetClass;
-class GenCompSignalInstance;
+class ComponentSignalInstance;
 class SI_NetPoint;
 class SI_NetLabel;
+class BI_NetPoint;
+class BI_Via;
 class ErcMsg;
-}
 
 /*****************************************************************************************
  *  Class NetSignal
  ****************************************************************************************/
 
-namespace project {
-
 /**
  * @brief The NetSignal class
  */
-class NetSignal final : public IF_ErcMsgProvider, public IF_XmlSerializableObject
+class NetSignal final : public QObject, public IF_ErcMsgProvider, public IF_XmlSerializableObject
 {
-        Q_DECLARE_TR_FUNCTIONS(NetSignal)
+        Q_OBJECT
         DECLARE_ERC_MSG_CLASS_NAME(NetSignal)
 
     public:
 
         // Constructors / Destructor
-        explicit NetSignal(const Circuit& circuit,
-                           const XmlDomElement& domElement) throw (Exception);
-        explicit NetSignal(const Circuit& circuit, NetClass& netclass,
-                           const QString& name, bool autoName) throw (Exception);
+        NetSignal() = delete;
+        NetSignal(const NetSignal& other) = delete;
+        explicit NetSignal(Circuit& circuit, const XmlDomElement& domElement) throw (Exception);
+        explicit NetSignal(Circuit& circuit, NetClass& netclass, const QString& name,
+                           bool autoName) throw (Exception);
         ~NetSignal() noexcept;
 
-        // Getters
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        // Getters: Attributes
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const QString& getName() const noexcept {return mName;}
         bool hasAutoName() const noexcept {return mHasAutoName;}
         NetClass& getNetClass() const noexcept {return *mNetClass;}
-        bool isNameForced() const noexcept {return (mGenCompSignalWithForcedNameCount > 0);}
-        const QList<GenCompSignalInstance*>& getGenCompSignals() const noexcept {return mGenCompSignals;}
-        const QList<SI_NetPoint*>& getNetPoints() const noexcept {return mSchematicNetPoints;}
-        const QList<SI_NetLabel*>& getNetLabels() const noexcept {return mSchematicNetLabels;}
+        bool isHighlighted() const noexcept {return mIsHighlighted;}
+
+        // Getters: General
+        Circuit& getCircuit() const noexcept {return mCircuit;}
+        const QList<ComponentSignalInstance*>& getComponentSignals() const noexcept {return mRegisteredComponentSignals;}
+        const QList<SI_NetPoint*>& getSchematicNetPoints() const noexcept {return mRegisteredSchematicNetPoints;}
+        const QList<SI_NetLabel*>& getSchematicNetLabels() const noexcept {return mRegisteredSchematicNetLabels;}
+        const QList<BI_NetPoint*>& getBoardNetPoints() const noexcept {return mRegisteredBoardNetPoints;}
+        const QList<BI_Via*>& getBoardVias() const noexcept {return mRegisteredBoardVias;}
+        int getRegisteredElementsCount() const noexcept;
+        bool isUsed() const noexcept;
+        bool isNameForced() const noexcept;
 
         // Setters
         void setName(const QString& name, bool isAutoName) throw (Exception);
+        void setHighlighted(bool hl) noexcept;
 
         // General Methods
-        void registerGenCompSignal(GenCompSignalInstance& signal) noexcept;
-        void unregisterGenCompSignal(GenCompSignalInstance& signal) noexcept;
-        void registerSchematicNetPoint(SI_NetPoint& netpoint) noexcept;
-        void unregisterSchematicNetPoint(SI_NetPoint& netpoint) noexcept;
-        void registerSchematicNetLabel(SI_NetLabel& netlabel) noexcept;
-        void unregisterSchematicNetLabel(SI_NetLabel& netlabel) noexcept;
-        void addToCircuit() noexcept;
-        void removeFromCircuit() noexcept;
+        void addToCircuit() throw (Exception);
+        void removeFromCircuit() throw (Exception);
+        void registerComponentSignal(ComponentSignalInstance& signal) throw (Exception);
+        void unregisterComponentSignal(ComponentSignalInstance& signal) throw (Exception);
+        void registerSchematicNetPoint(SI_NetPoint& netpoint) throw (Exception);
+        void unregisterSchematicNetPoint(SI_NetPoint& netpoint) throw (Exception);
+        void registerSchematicNetLabel(SI_NetLabel& netlabel) throw (Exception);
+        void unregisterSchematicNetLabel(SI_NetLabel& netlabel) throw (Exception);
+        void registerBoardNetPoint(BI_NetPoint& netpoint) throw (Exception);
+        void unregisterBoardNetPoint(BI_NetPoint& netpoint) throw (Exception);
+        void registerBoardVia(BI_Via& via) throw (Exception);
+        void unregisterBoardVia(BI_Via& via) throw (Exception);
 
         /// @copydoc IF_XmlSerializableObject#serializeToXmlDomElement()
         XmlDomElement* serializeToXmlDomElement() const throw (Exception) override;
 
+        // Operator Overloadings
+        NetSignal& operator=(const NetSignal& rhs) = delete;
+
+
+    signals:
+
+        void nameChanged(const QString& newName);
+        void highlightedChanged(bool isHighlighted);
+
 
     private:
-
-        // make some methods inaccessible...
-        NetSignal();
-        NetSignal(const NetSignal& other);
-        NetSignal& operator=(const NetSignal& rhs);
-
-        // Private Methods
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
         bool checkAttributesValidity() const noexcept override;
@@ -108,29 +124,35 @@ class NetSignal final : public IF_ErcMsgProvider, public IF_XmlSerializableObjec
 
 
         // General
-        const Circuit& mCircuit;
-        bool mAddedToCircuit;
-
-        // Misc
-
-        /// @brief the ERC message for unused netsignals
-        ErcMsg* mErcMsgUnusedNetSignal;
-        /// @brief the ERC messages for netsignals with less than two generic component signals
-        ErcMsg* mErcMsgConnectedToLessThanTwoPins;
-
-        // Registered Elements of this Netclass
-        QList<GenCompSignalInstance*> mGenCompSignals;
-        QList<SI_NetPoint*> mSchematicNetPoints;
-        QList<SI_NetLabel*> mSchematicNetLabels;
-        int mGenCompSignalWithForcedNameCount;
+        Circuit& mCircuit;
+        bool mIsAddedToCircuit;
+        bool mIsHighlighted;
 
         // Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         QString mName;
         bool mHasAutoName;
         NetClass* mNetClass;
+
+        // Registered Elements of this NetSignal
+        QList<ComponentSignalInstance*> mRegisteredComponentSignals;
+        QList<SI_NetPoint*> mRegisteredSchematicNetPoints;
+        QList<SI_NetLabel*> mRegisteredSchematicNetLabels;
+        QList<BI_NetPoint*> mRegisteredBoardNetPoints;
+        QList<BI_Via*> mRegisteredBoardVias;
+
+        // ERC Messages
+        /// @brief the ERC message for unused netsignals
+        QScopedPointer<ErcMsg> mErcMsgUnusedNetSignal;
+        /// @brief the ERC messages for netsignals with less than two component signals
+        QScopedPointer<ErcMsg> mErcMsgConnectedToLessThanTwoPins;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_NETSIGNAL_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_NETSIGNAL_H

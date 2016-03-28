@@ -17,19 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef RECENTPROJECTSMODEL_H
-#define RECENTPROJECTSMODEL_H
+#ifndef LIBREPCB_RECENTPROJECTSMODEL_H
+#define LIBREPCB_RECENTPROJECTSMODEL_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/fileio/filepath.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 class Workspace;
 
@@ -72,4 +73,11 @@ class RecentProjectsModel : public QAbstractListModel
 
 };
 
-#endif // RECENTPROJECTSMODEL_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_RECENTPROJECTSMODEL_H

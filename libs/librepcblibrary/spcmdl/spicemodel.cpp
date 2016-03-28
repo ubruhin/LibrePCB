@@ -20,18 +20,21 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "spicemodel.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace library {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-SpiceModel::SpiceModel(const FilePath& elementDirectory) :
-    LibraryElement(elementDirectory, "spcmdl", "spice_model")
+SpiceModel::SpiceModel(const FilePath& elementDirectory, bool readOnly) :
+    LibraryElement(elementDirectory, "spcmdl", "spice_model", readOnly)
 {
     readFromFile();
 }
@@ -54,3 +57,4 @@ void SpiceModel::parseDomTree(const XmlDomElement& root) throw (Exception)
  ****************************************************************************************/
 
 } // namespace library
+} // namespace librepcb

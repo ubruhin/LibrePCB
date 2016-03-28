@@ -1,4 +1,4 @@
-# LibrePCB [![Build Status](https://travis-ci.org/LibrePCB/LibrePCB.svg?branch=master)](https://travis-ci.org/LibrePCB/LibrePCB)
+# LibrePCB [![Travis Build Status](https://travis-ci.org/LibrePCB/LibrePCB.svg?branch=master)](https://travis-ci.org/LibrePCB/LibrePCB) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/3npw66djux4kv82f/branch/master?svg=true)](https://ci.appveyor.com/project/ubruhin/librepcb/branch/master)
 
 ## About LibrePCB
 
@@ -31,7 +31,7 @@ development stage (no stable release available).
 
 To compile LibrePCB, you need the following software components:
 - g++ >= 4.8, MinGW >= 4.8, or Clang >= 3.3 (C++11 support is required)
-- Qt >= 5.4 (http://www.qt.io/download-open-source/)
+- Qt >= 5.2 (http://www.qt.io/download-open-source/)
 - libglu1-mesa-dev (`sudo apt-get install libglu1-mesa-dev`)
 - `pkg-config` (http://www.freedesktop.org/wiki/Software/pkg-config/)
 - `libxml2` / `libxml2-dev` (http://www.xmlsoft.org/index.html)
@@ -51,9 +51,23 @@ Download the following archives from [here](http://ftp.gnome.org/pub/gnome/binar
 
 All these archives contain a "bin" directory. Copy all these "bin" directories into your compiler's directory (for example C:\Qt\5.3\mingw482_32\). From the package "libxml2-dev" you need also to copy the directories "include" and "lib" into your compilers directory.
 
+#### Installation on Ubuntu 14.04 and later
+
+```bash
+sudo apt-get install g++ qt5-default libqt5webkit5 libqt5webkit5-dev qttools5-dev-tools qt5-doc qtcreator libglu1-mesa-dev
+```
+
+#### Installation on ArchLinux
+
+You can install [librepcb-git](https://aur.archlinux.org/packages/librepcb-git/) from the AUR.
+
+#### Installation in a docker container
+
+To build and run LibrePCB in a [docker](https://www.docker.com/) container (which is pretty cool!), check out [these instructions](https://github.com/LibrePCB/LibrePCB/tree/master/dev/docker).
+
 ### Building
 
-#### Using qtcreator
+#### Using Qt Creator
 
 Building with [qtcreator](http://doc.qt.io/qtcreator/) is probably the easiest
 way.  To keep build time as low as possible make sure to set the correct make
@@ -62,19 +76,35 @@ answer](https://stackoverflow.com/questions/8860712/setting-default-make-options
 
 #### Using qmake and make
 
-Since qtcreator is also using qmake and make to build, it's easy to do the same
+Since Qt Creator is also using qmake and make to build, it's easy to do the same
 on the command line:
 
 ```bash
-$ mkdir build && cd build
-$ qmake -r ../librepcb.pro
-$ make -j 8
+mkdir build && cd build
+qmake -r ../librepcb.pro
+make -j 8
 ```
 
-Then grab a coffee, since the compilation takes about two minutes on a decent
-laptop:
+### Run LibrePCB
+
+#### From Qt Creator
+
+Select the run configuration `librepcb` and click on the `Run` button:
+
+![run_librepcb](https://cloud.githubusercontent.com/assets/5374821/11880865/82574916-a503-11e5-9ec1-ad79b0e2d0d5.png)
+
+#### From Command Line
+
+```bash
+./generated/unix/librepcb
 ```
-make -j8  819.54s user 44.92s system 726% cpu 1:58.93 total
+
+### Installation
+
+To install LibrePCB on a Linux/UNIX system, just execute the following command after building:
+
+```bash
+sudo make install
 ```
 
 ### Documentation
@@ -87,6 +117,7 @@ make -j8  819.54s user 44.92s system 726% cpu 1:58.93 total
 At the first startup, LibrePCB asks for a workspace directory where the library
 elements and projects will be saved.  For developers there is a demo workspace
 inclusive library and projects in the submodule "dev/demo-workspace/".
+
 
 ## License
 

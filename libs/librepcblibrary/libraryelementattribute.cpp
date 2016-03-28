@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "libraryelementattribute.h"
 #include "librarybaseelement.h"
@@ -28,6 +27,10 @@
 #include <librepcbcommon/attributes/attributetype.h>
 #include <librepcbcommon/attributes/attributeunit.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace library {
 
 /*****************************************************************************************
@@ -38,9 +41,9 @@ LibraryElementAttribute::LibraryElementAttribute(const XmlDomElement& domElement
     mKey(), mType(nullptr), mDefaultUnit(nullptr)
 {
     // read attributes
-    mKey = domElement.getAttribute("key", true);
-    mType = &AttributeType::fromString(domElement.getAttribute("type", true));
-    mDefaultUnit = mType->getUnitFromString(domElement.getAttribute("unit", false));
+    mKey = domElement.getAttribute<QString>("key", true);
+    mType = &AttributeType::fromString(domElement.getAttribute<QString>("type", true));
+    mDefaultUnit = mType->getUnitFromString(domElement.getAttribute<QString>("unit", false));
 
     // read names, descriptions and default values in all available languages
     LibraryBaseElement::readLocaleDomNodes(domElement, "name", mNames);
@@ -116,3 +119,4 @@ bool LibraryElementAttribute::checkAttributesValidity() const noexcept
  ****************************************************************************************/
 
 } // namespace library
+} // namespace librepcb

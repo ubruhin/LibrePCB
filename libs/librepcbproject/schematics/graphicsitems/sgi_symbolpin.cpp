@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QPrinter>
@@ -30,13 +29,17 @@
 #include "../schematic.h"
 #include "../../project.h"
 #include "../../circuit/netsignal.h"
-#include "../../circuit/gencompinstance.h"
-#include "../../circuit/gencompsignalinstance.h"
+#include "../../circuit/componentinstance.h"
+#include "../../circuit/componentsignalinstance.h"
 #include <librepcbcommon/schematiclayer.h>
 #include <librepcblibrary/sym/symbolpin.h>
-#include <librepcblibrary/gencmp/genericcomponent.h>
+#include <librepcblibrary/cmp/component.h>
 #include "../../settings/projectsettings.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -47,8 +50,7 @@ SGI_SymbolPin::SGI_SymbolPin(SI_SymbolPin& pin) noexcept :
     SGI_Base(), mPin(pin), mLibPin(pin.getLibPin())
 {
     setZValue(Schematic::ZValue_Symbols);
-    QStringList localeOrder = mPin.getSymbol().getSchematic().getProject().getSettings().getLocaleOrder();
-    setToolTip(mLibPin.getName(localeOrder) % ": " % mLibPin.getDescription(localeOrder));
+    setToolTip(mLibPin.getName());
 
     mStaticText.setTextFormat(Qt::PlainText);
     mStaticText.setPerformanceHint(QStaticText::AggressiveCaching);
@@ -118,15 +120,14 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     const bool deviceIsPrinter = (dynamic_cast<QPrinter*>(painter->device()) != 0);
     const qreal lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    const library::GenCompSignal* genCompSignal = mPin.getGenCompSignal();
-    const NetSignal* netsignal = (genCompSignal ? mPin.getGenCompSignalInstance()->getNetSignal() : nullptr);
-    bool requiredPin = mPin.getGenCompSignal()->isRequired();
+    const NetSignal* netsignal = mPin.getCompSigInstNetSignal();
+    bool highlight = mPin.isSelected() || (netsignal && netsignal->isHighlighted());
 
     // draw line
     SchematicLayer* layer = getSchematicLayer(SchematicLayer::SymbolOutlines); Q_ASSERT(layer);
     if (layer->isVisible())
     {
-        painter->setPen(QPen(layer->getColor(mPin.isSelected()), Length(158750).toPx(), Qt::SolidLine, Qt::RoundCap));
+        painter->setPen(QPen(layer->getColor(highlight), Length(158750).toPx(), Qt::SolidLine, Qt::RoundCap));
         painter->drawLine(QPointF(0, 0), Point(mLibPin.getLength(), 0).toPxQPointF());
     }
 
@@ -134,7 +135,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     layer = getSchematicLayer(SchematicLayer::SymbolPinCircles); Q_ASSERT(layer);
     if ((layer->isVisible()) && (!deviceIsPrinter) && (!netsignal))
     {
-        painter->setPen(QPen(layer->getColor(requiredPin), 0));
+        painter->setPen(QPen(layer->getColor(mPin.isRequired()), 0));
         painter->setBrush(Qt::NoBrush);
         painter->drawEllipse(QPointF(0, 0), mRadiusPx, mRadiusPx);
     }
@@ -148,7 +149,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
             // draw text
             painter->save();
             if (mRotate180) painter->rotate(180);
-            painter->setPen(QPen(layer->getColor(mPin.isSelected()), 0));
+            painter->setPen(QPen(layer->getColor(highlight), 0));
             painter->setFont(mFont);
             painter->drawStaticText(mTextOrigin, mStaticText);
             painter->restore();
@@ -157,7 +158,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         {
             // draw filled rect
             painter->setPen(Qt::NoPen);
-            painter->setBrush(QBrush(layer->getColor(mPin.isSelected()), Qt::Dense5Pattern));
+            painter->setBrush(QBrush(layer->getColor(highlight), Qt::Dense5Pattern));
             painter->drawRect(mTextBoundingRect);
         }
     }
@@ -173,7 +174,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
         font.setFamily("Monospace");
         font.setPixelSize(3);
         painter->setFont(font);
-        painter->setPen(QPen(layer->getColor(mPin.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->save();
         if (mRotate180) painter->rotate(180);
         painter->drawText(QRectF(), Qt::AlignHCenter | Qt::AlignBottom | Qt::TextSingleLine | Qt::TextDontClip, netsignal->getName());
@@ -183,7 +184,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     if (layer->isVisible())
     {
         // draw bounding rect
-        painter->setPen(QPen(layer->getColor(mPin.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRect(mBoundingRect);
     }
@@ -191,7 +192,7 @@ void SGI_SymbolPin::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     if (layer->isVisible())
     {
         // draw text bounding rect
-        painter->setPen(QPen(layer->getColor(mPin.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRect(mTextBoundingRect);
     }
@@ -212,3 +213,4 @@ SchematicLayer* SGI_SymbolPin::getSchematicLayer(int id) const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

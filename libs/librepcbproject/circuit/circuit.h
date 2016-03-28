@@ -17,47 +17,45 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CIRCUIT_H
-#define PROJECT_CIRCUIT_H
+#ifndef LIBREPCB_PROJECT_CIRCUIT_H
+#define LIBREPCB_PROJECT_CIRCUIT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include <librepcbcommon/exceptions.h>
 #include <librepcbcommon/fileio/filepath.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class SmartXmlFile;
 
+namespace library {
+class Component;
+}
+
 namespace project {
+
 class Project;
 class NetClass;
 class NetSignal;
-class GenCompInstance;
-}
-
-namespace library {
-class GenericComponent;
-class GenCompSymbVar;
-}
+class ComponentInstance;
 
 /*****************************************************************************************
  *  Class Circuit
  ****************************************************************************************/
 
-namespace project {
-
 /**
  * @brief   The Circuit class represents all electrical connections in a project (drawed
  *          in the schematics)
  *
- * Each project#Project object contains exactly one #Circuit object which contains the
+ * Each #project#Project object contains exactly one #Circuit object which contains the
  * whole electrical components and connections. They are created with the schematic editor
  * and used by the board editor. The whole circuit is saved in the file "circuit.xml" in
  * the project's "core" directory.
@@ -65,7 +63,7 @@ namespace project {
  * Each #Circuit object contains:
  *  - All net classes (project#NetClass objects)
  *  - All net signals (project#NetSignal objects)
- *  - All generic component instances (project#GenCompInstance objects)
+ *  - All component instances (project#ComponentInstance objects)
  *
  * @author ubruhin
  * @date 2014-07-03
@@ -77,42 +75,48 @@ class Circuit final : public QObject, public IF_XmlSerializableObject
     public:
 
         // Constructors / Destructor
-        explicit Circuit(Project& project, bool restore, bool readOnly, bool create) throw (Exception);
+        Circuit() = delete;
+        Circuit(const Circuit& other) = delete;
+        Circuit(Project& project, bool restore, bool readOnly, bool create) throw (Exception);
         ~Circuit() noexcept;
 
         // Getters
         Project& getProject() const noexcept {return mProject;}
 
         // NetClass Methods
-        const QHash<QUuid, NetClass*>& getNetClasses() const noexcept {return mNetClasses;}
-        NetClass* getNetClassByUuid(const QUuid& uuid) const noexcept;
+        const QMap<Uuid, NetClass*>& getNetClasses() const noexcept {return mNetClasses;}
+        NetClass* getNetClassByUuid(const Uuid& uuid) const noexcept;
         NetClass* getNetClassByName(const QString& name) const noexcept;
         void addNetClass(NetClass& netclass) throw (Exception);
         void removeNetClass(NetClass& netclass) throw (Exception);
         void setNetClassName(NetClass& netclass, const QString& newName) throw (Exception);
 
         // NetSignal Methods
-        const QHash<QUuid, NetSignal*>& getNetSignals() const noexcept {return mNetSignals;}
-        NetSignal* getNetSignalByUuid(const QUuid& uuid) const noexcept;
+        QString generateAutoNetSignalName() const noexcept;
+        const QMap<Uuid, NetSignal*>& getNetSignals() const noexcept {return mNetSignals;}
+        NetSignal* getNetSignalByUuid(const Uuid& uuid) const noexcept;
         NetSignal* getNetSignalByName(const QString& name) const noexcept;
-        NetSignal* createNetSignal(NetClass& netclass, QString name = QString()) throw (Exception);
         void addNetSignal(NetSignal& netsignal) throw (Exception);
         void removeNetSignal(NetSignal& netsignal) throw (Exception);
         void setNetSignalName(NetSignal& netsignal, const QString& newName, bool isAutoName) throw (Exception);
+        void setHighlightedNetSignal(NetSignal* signal) noexcept;
 
-        // GenCompInstance Methods
-        const QHash<QUuid, GenCompInstance*>& getGenCompInstances() const noexcept {return mGenCompInstances;}
-        GenCompInstance* getGenCompInstanceByUuid(const QUuid& uuid) const noexcept;
-        GenCompInstance* getGenCompInstanceByName(const QString& name) const noexcept;
-        GenCompInstance* createGenCompInstance(const library::GenericComponent& genComp,
-                                               const library::GenCompSymbVar& symbVar,
-                                               QString name = QString()) throw (Exception);
-        void addGenCompInstance(GenCompInstance& genCompInstance) throw (Exception);
-        void removeGenCompInstance(GenCompInstance& genCompInstance) throw (Exception);
-        void setGenCompInstanceName(GenCompInstance& genComp, const QString& newName) throw (Exception);
+        // ComponentInstance Methods
+        QString generateAutoComponentInstanceName(const QString& cmpPrefix) const noexcept;
+        const QMap<Uuid, ComponentInstance*>& getComponentInstances() const noexcept {return mComponentInstances;}
+        ComponentInstance* getComponentInstanceByUuid(const Uuid& uuid) const noexcept;
+        ComponentInstance* getComponentInstanceByName(const QString& name) const noexcept;
+        void addComponentInstance(ComponentInstance& cmp) throw (Exception);
+        void removeComponentInstance(ComponentInstance& cmp) throw (Exception);
+        void setComponentInstanceName(ComponentInstance& cmp, const QString& newName) throw (Exception);
 
         // General Methods
         bool save(bool toOriginal, QStringList& errors) noexcept;
+
+        // Operator Overloadings
+        Circuit& operator=(const Circuit& rhs) = delete;
+        bool operator==(const Circuit& rhs) noexcept {return (this == &rhs);}
+        bool operator!=(const Circuit& rhs) noexcept {return (this != &rhs);}
 
 
     signals:
@@ -121,18 +125,11 @@ class Circuit final : public QObject, public IF_XmlSerializableObject
         void netClassRemoved(NetClass& netclass);
         void netSignalAdded(NetSignal& netsignal);
         void netSignalRemoved(NetSignal& netsignal);
-        void genCompAdded(GenCompInstance& genComp);
-        void genCompRemoved(GenCompInstance& genComp);
+        void componentAdded(ComponentInstance& cmp);
+        void componentRemoved(ComponentInstance& cmp);
 
 
     private:
-
-        // make some methods inaccessible...
-        Circuit();
-        Circuit(const Circuit& other);
-        Circuit& operator=(const Circuit& rhs);
-
-        // Private Methods
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
         bool checkAttributesValidity() const noexcept override;
@@ -148,11 +145,16 @@ class Circuit final : public QObject, public IF_XmlSerializableObject
         FilePath mXmlFilepath;
         SmartXmlFile* mXmlFile;
 
-        QHash<QUuid, NetClass*> mNetClasses;
-        QHash<QUuid, NetSignal*> mNetSignals;
-        QHash<QUuid, GenCompInstance*> mGenCompInstances;
+        QMap<Uuid, NetClass*> mNetClasses;
+        QMap<Uuid, NetSignal*> mNetSignals;
+        QMap<Uuid, ComponentInstance*> mComponentInstances;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CIRCUIT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CIRCUIT_H

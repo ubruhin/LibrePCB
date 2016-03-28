@@ -17,29 +17,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDPROJECTSETTINGSCHANGE_H
-#define PROJECT_CMDPROJECTSETTINGSCHANGE_H
+#ifndef LIBREPCB_PROJECT_CMDPROJECTSETTINGSCHANGE_H
+#define LIBREPCB_PROJECT_CMDPROJECTSETTINGSCHANGE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class ProjectSettings;
-}
 
 /*****************************************************************************************
  *  Class CmdProjectSettingsChange
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdProjectSettingsChange class
@@ -49,8 +46,7 @@ class CmdProjectSettingsChange final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdProjectSettingsChange(ProjectSettings& settings,
-                                          UndoCommand* parent = 0) throw (Exception);
+        explicit CmdProjectSettingsChange(ProjectSettings& settings) noexcept;
         ~CmdProjectSettingsChange() noexcept;
 
         // Setters
@@ -58,13 +54,20 @@ class CmdProjectSettingsChange final : public UndoCommand
         void setLocaleOrder(const QStringList& locales) noexcept;
         void setNormOrder(const QStringList& norms) noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
         // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
         void applyNewSettings() throw (Exception);
         void applyOldSettings() throw (Exception);
 
@@ -80,6 +83,11 @@ class CmdProjectSettingsChange final : public UndoCommand
         QStringList mNormOrderNew;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDPROJECTSETTINGSCHANGE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDPROJECTSETTINGSCHANGE_H

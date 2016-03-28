@@ -17,31 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BES_SELECT_H
-#define PROJECT_BES_SELECT_H
+#ifndef LIBREPCB_PROJECT_BES_SELECT_H
+#define LIBREPCB_PROJECT_BES_SELECT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bes_base.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
-class UndoCommand;
+class UndoCommandGroup;
 
 namespace project {
-class CmdComponentInstanceEdit;
-}
+
+class CmdMoveSelectedBoardItems;
 
 /*****************************************************************************************
  *  Class BES_Select
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BES_Select class
@@ -71,16 +69,14 @@ class BES_Select final : public BES_Base
         ProcRetVal processSubStateMoving(BEE_Base* event) noexcept;
         ProcRetVal processSubStateMovingSceneEvent(BEE_Base* event) noexcept;
         ProcRetVal proccessIdleSceneLeftClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                              Board* board) noexcept;
-        ProcRetVal proccessIdleSceneRightClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                               Board* board) noexcept;
+                                              Board& board) noexcept;
+        ProcRetVal proccessIdleSceneRightMouseButtonReleased(QGraphicsSceneMouseEvent* mouseEvent,
+                                                             Board* board) noexcept;
         ProcRetVal proccessIdleSceneDoubleClick(QGraphicsSceneMouseEvent* mouseEvent,
                                                 Board* board) noexcept;
-        bool startMovingSelectedItems(Board* board) noexcept;
-        bool rotateSelectedItems(const Angle& angle, Point center = Point(0, 0),
-                                 bool centerOfElements = false) noexcept;
-        bool flipSelectedItems(bool vertical, Point center = Point(0, 0),
-                               bool centerOfElements = false) noexcept;
+        bool startMovingSelectedItems(Board& board, const Point& startPos) noexcept;
+        bool rotateSelectedItems(const Angle& angle) noexcept;
+        bool flipSelectedItems(Qt::Orientation orientation) noexcept;
         bool removeSelectedItems() noexcept;
 
 
@@ -94,12 +90,14 @@ class BES_Select final : public BES_Base
 
         // Attributes
         SubState mSubState;     ///< the current substate
-        Point mLastMouseMoveDeltaPos;   ///< used in the moving substate (mapped to grid)
-        UndoCommand* mParentCommand;    ///< the parent command for all moving commands
-                                        ///< (nullptr if no command is active)
-        QList<CmdComponentInstanceEdit*> mComponentEditCmds; ///< all footprint move commands
+        QScopedPointer<CmdMoveSelectedBoardItems> mSelectedItemsMoveCommand;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BES_SELECT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BES_SELECT_H

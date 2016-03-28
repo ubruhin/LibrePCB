@@ -26,13 +26,17 @@
 #include "ui_libraryeditor.h"
 #include <librepcbworkspace/workspace.h>
 
-namespace library_editor{
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
+namespace library {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-LibraryEditor::LibraryEditor(Workspace& workspace) throw (Exception) :
+LibraryEditor::LibraryEditor(workspace::Workspace& workspace) throw (Exception) :
     QMainWindow(0), mWorkspace(workspace), mUi(new Ui::LibraryEditor)
 {
     mUi->setupUi(this);
@@ -47,4 +51,5 @@ LibraryEditor::~LibraryEditor() noexcept
  *  End of File
  ****************************************************************************************/
 
-} // namespace library_editor
+} // namespace library
+} // namespace librepcb

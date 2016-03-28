@@ -17,35 +17,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H
-#define LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H
+#ifndef LIBREPCB_LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H
+#define LIBREPCB_LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <librepcbcommon/graphics/graphicsitem.h>
-#include "../gencmp/gencompsymbvaritem.h"
+#include "../cmp/componentsymbolvariantitem.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class SchematicLayer;
 class IF_SchematicLayerProvider;
 
 namespace library {
+
 class SymbolPin;
-class GenCompSignal;
-}
+class ComponentSignal;
 
 /*****************************************************************************************
  *  Class SymbolPinPreviewGraphicsItem
  ****************************************************************************************/
-
-namespace library {
 
 /**
  * @brief The SymbolPinPreviewGraphicsItem class
@@ -57,12 +55,12 @@ class SymbolPinPreviewGraphicsItem final : public GraphicsItem
 {
     public:
 
+        // Types
+        using PinDisplayType_t = ComponentPinSignalMapItem::PinDisplayType_t;
+
         // Constructors / Destructor
         explicit SymbolPinPreviewGraphicsItem(const IF_SchematicLayerProvider& layerProvider,
-                                              const QStringList& localeOrder,
-                                              const SymbolPin& pin,
-                                              const GenCompSignal* genCompSignal,
-                                              GenCompSymbVarItem::PinDisplayType_t displayType) noexcept;
+            const SymbolPin& pin, const ComponentSignal* compSignal, PinDisplayType_t displayType) noexcept;
         ~SymbolPinPreviewGraphicsItem() noexcept;
 
         // Setters
@@ -87,15 +85,14 @@ class SymbolPinPreviewGraphicsItem final : public GraphicsItem
 
         // General Attributes
         const SymbolPin& mPin;
-        const GenCompSignal* mGenCompSignal;
-        GenCompSymbVarItem::PinDisplayType_t mDisplayType;
+        const ComponentSignal* mComponentSignal;
+        PinDisplayType_t mDisplayType;
         SchematicLayer* mCircleLayer;
         SchematicLayer* mLineLayer;
         SchematicLayer* mTextLayer;
         QFont mFont;
         qreal mRadiusPx;
         bool mDrawBoundingRect;
-        QStringList mLocaleOrder;
 
         // Cached Attributes
         QStaticText mStaticText;
@@ -106,6 +103,11 @@ class SymbolPinPreviewGraphicsItem final : public GraphicsItem
         QPainterPath mShape;
 };
 
-} // namespace library
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H
+} // namespace library
+} // namespace librepcb
+
+#endif // LIBREPCB_LIBRARY_SYMBOLPINPREVIEWGRAPHICSITEM_H

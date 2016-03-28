@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDBOARDADD_H
-#define PROJECT_CMDBOARDADD_H
+#ifndef LIBREPCB_PROJECT_CMDBOARDADD_H
+#define LIBREPCB_PROJECT_CMDBOARDADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
 class Board;
-}
 
 /*****************************************************************************************
  *  Class CmdBoardAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdBoardAdd class
@@ -51,25 +47,42 @@ class CmdBoardAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdBoardAdd(Project& project, const QString& name,
-                             UndoCommand* parent = 0) throw (Exception);
+        CmdBoardAdd(Project& project, const QString& name) noexcept;
+        CmdBoardAdd(Project& project, const Board& boardToCopy, const QString& name) noexcept;
         ~CmdBoardAdd() noexcept;
 
         // Getters
         Board* getBoard() const noexcept {return mBoard;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
+
         Project& mProject;
+        const Board* mBoardToCopy;
         QString mName;
         Board* mBoard;
         int mPageIndex;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDBOARDADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDBOARDADD_H

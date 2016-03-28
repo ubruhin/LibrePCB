@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QPrinter>
@@ -31,6 +30,10 @@
 #include "../../circuit/netsignal.h"
 #include <librepcbcommon/schematiclayer.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 QVector<QLineF> SGI_NetLabel::sOriginCrossLines;
@@ -101,11 +104,13 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     bool deviceIsPrinter = (dynamic_cast<QPrinter*>(painter->device()) != 0);
     const qreal lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
+    bool highlight = mNetLabel.isSelected() || mNetLabel.getNetSignal().isHighlighted();
+
     SchematicLayer* layer = getSchematicLayer(SchematicLayer::OriginCrosses); Q_ASSERT(layer);
     if ((layer->isVisible()) && (lod > 2) && (!deviceIsPrinter))
     {
         // draw origin cross
-        painter->setPen(QPen(layer->getColor(mNetLabel.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->drawLines(sOriginCrossLines);
     }
 
@@ -113,7 +118,7 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     if ((layer->isVisible()) && ((deviceIsPrinter) || (lod > 1)))
     {
         // draw text
-        painter->setPen(QPen(layer->getColor(mNetLabel.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->setFont(mFont);
         if (mRotate180)
         {
@@ -129,7 +134,7 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     {
         // draw filled rect
         painter->setPen(Qt::NoPen);
-        painter->setBrush(QBrush(layer->getColor(mNetLabel.isSelected()), Qt::Dense5Pattern));
+        painter->setBrush(QBrush(layer->getColor(highlight), Qt::Dense5Pattern));
         painter->drawRect(mBoundingRect);
     }
 
@@ -138,7 +143,7 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     if (layer->isVisible())
     {
         // draw bounding rect
-        painter->setPen(QPen(layer->getColor(mNetLabel.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRect(mBoundingRect);
     }
@@ -146,7 +151,7 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     if (layer->isVisible())
     {
         // draw text bounding rect
-        painter->setPen(QPen(layer->getColor(mNetLabel.isSelected()), 0));
+        painter->setPen(QPen(layer->getColor(highlight), 0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRect(QRectF(mTextOrigin, mStaticText.size()));
     }
@@ -167,3 +172,4 @@ SchematicLayer* SGI_NetLabel::getSchematicLayer(int id) const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

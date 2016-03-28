@@ -17,35 +17,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BI_FOOTPRINTPAD_H
-#define PROJECT_BI_FOOTPRINTPAD_H
+#ifndef LIBREPCB_PROJECT_BI_FOOTPRINTPAD_H
+#define LIBREPCB_PROJECT_BI_FOOTPRINTPAD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bi_base.h"
 #include "../graphicsitems/bgi_footprintpad.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
-namespace project {
-class BI_Footprint;
-class Circuit;
-}
+namespace librepcb {
 
 namespace library {
 class FootprintPad;
+class ComponentSignal;
 }
+
+namespace project {
+
+class BI_Footprint;
+class BI_NetPoint;
+class Circuit;
+class ComponentSignalInstance;
 
 /*****************************************************************************************
  *  Class BI_FootprintPad
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BI_FootprintPad class
@@ -57,27 +58,32 @@ class BI_FootprintPad final : public BI_Base
     public:
 
         // Constructors / Destructor
-        explicit BI_FootprintPad(BI_Footprint& footprint, const QUuid& padUuid);
+        BI_FootprintPad() = delete;
+        BI_FootprintPad(const BI_FootprintPad& other) = delete;
+        BI_FootprintPad(BI_Footprint& footprint, const Uuid& padUuid);
         ~BI_FootprintPad();
 
         // Getters
-        Project& getProject() const noexcept;
-        Board& getBoard() const noexcept;
-        const QUuid& getLibPadUuid() const noexcept;
-        //QString getDisplayText(bool returnGenCompSignalNameIfEmpty = false,
-        //                       bool returnPinNameIfEmpty = false) const noexcept;
+        const Uuid& getLibPadUuid() const noexcept;
+        QString getDisplayText() const noexcept;
         BI_Footprint& getFootprint() const noexcept {return mFootprint;}
-        //SI_NetPoint* getNetPoint() const noexcept {return mRegisteredNetPoint;}
+        const QMap<int, BI_NetPoint*>& getNetPoints() const noexcept {return mRegisteredNetPoints;}
+        BI_NetPoint* getNetPointOfLayer(int layerId) const noexcept {return mRegisteredNetPoints.value(layerId, nullptr);}
+        int getLayerId() const noexcept;
+        bool isOnLayer(const BoardLayer& layer) const noexcept;
         const library::FootprintPad& getLibPad() const noexcept {return *mFootprintPad;}
-        //const library::GenCompSignal* getGenCompSignal() const noexcept {return mGenCompSignal;}
-        //GenCompSignalInstance* getGenCompSignalInstance() const noexcept {return mGenCompSignalInstance;}
+        ComponentSignalInstance* getComponentSignalInstance() const noexcept {return mComponentSignalInstance;}
+        NetSignal* getCompSigInstNetSignal() const noexcept;
+        bool isUsed() const noexcept {return (mRegisteredNetPoints.count() > 0);}
+        bool isSelectable() const noexcept override;
 
         // General Methods
+        void addToBoard(GraphicsScene& scene) throw (Exception) override;
+        void removeFromBoard(GraphicsScene& scene) throw (Exception) override;
+        void registerNetPoint(BI_NetPoint& netpoint) throw (Exception);
+        void unregisterNetPoint(BI_NetPoint& netpoint) throw (Exception);
         void updatePosition() noexcept;
-        //void registerNetPoint(SI_NetPoint& netpoint);
-        //void unregisterNetPoint(SI_NetPoint& netpoint);
-        void addToBoard(GraphicsScene& scene) noexcept;
-        void removeFromBoard(GraphicsScene& scene) noexcept;
+
 
         // Inherited from SI_Base
         Type_t getType() const noexcept override {return BI_Base::Type_t::FootprintPad;}
@@ -86,30 +92,38 @@ class BI_FootprintPad final : public BI_Base
         QPainterPath getGrabAreaScenePx() const noexcept override;
         void setSelected(bool selected) noexcept override;
 
+        // Operator Overloadings
+        BI_FootprintPad& operator=(const BI_FootprintPad& rhs) = delete;
+
+
+    private slots:
+
+        void footprintAttributesChanged();
+
 
     private:
 
-        // make some methods inaccessible...
-        BI_FootprintPad();
-        BI_FootprintPad(const BI_FootprintPad& other);
-        BI_FootprintPad& operator=(const BI_FootprintPad& rhs);
+        void updateGraphicsItemTransform() noexcept;
 
 
         // General
-        Circuit& mCircuit;
         BI_Footprint& mFootprint;
         const library::FootprintPad* mFootprintPad;
-        //const library::GenCompSignal* mGenCompSignal;
-        //GenCompSignalInstance* mGenCompSignalInstance;
-        Point mPosition;
-        Angle mRotation;
+        const library::PackagePad* mPackagePad;
+        ComponentSignalInstance* mComponentSignalInstance;
 
         // Misc
-        bool mAddedToBoard;
-        //SI_NetPoint* mRegisteredNetPoint;
-        BGI_FootprintPad* mGraphicsItem;
+        Point mPosition;
+        Angle mRotation;
+        QMap<int, BI_NetPoint*> mRegisteredNetPoints; ///< key: layer ID
+        QScopedPointer<BGI_FootprintPad> mGraphicsItem;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BI_FOOTPRINTPAD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BI_FOOTPRINTPAD_H

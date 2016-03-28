@@ -25,6 +25,12 @@
  ****************************************************************************************/
 
 #include <QtCore>
+#include <librepcbcommon/geometry/polygon.h>
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Class PolygonSimplifier
@@ -33,7 +39,7 @@
 /**
  * @brief The PolygonSimplifier class
  */
-template <typename LibElemType, typename PolygonType, typename SegmentType>
+template <typename LibElemType>
 class PolygonSimplifier
 {
     public:
@@ -49,15 +55,21 @@ class PolygonSimplifier
     private:
 
         // Private Methods
-        bool findLineRectangle(QList<const PolygonType*>& lines) noexcept;
-        bool findHLine(const QList<const PolygonType*>& lines, Point& p, Length* width,
-                       const PolygonType** line) noexcept;
-        bool findVLine(const QList<const PolygonType*>& lines, Point& p, Length* width,
-                       const PolygonType** line) noexcept;
+        bool findLineRectangle(QList<librepcb::Polygon*>& lines) noexcept;
+        bool findHLine(const QList<librepcb::Polygon*>& lines, librepcb::Point& p,
+                       librepcb::Length* width, librepcb::Polygon** line) noexcept;
+        bool findVLine(const QList<librepcb::Polygon*>& lines, librepcb::Point& p,
+                       librepcb::Length* width, librepcb::Polygon** line) noexcept;
 
 
         // Attributes
         LibElemType& mLibraryElement;
 };
+
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
 
 #endif // POLYGONSIMPLIFIER_H

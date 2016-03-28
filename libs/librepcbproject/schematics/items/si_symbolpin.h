@@ -17,40 +17,40 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SI_SYMBOLPIN_H
-#define PROJECT_SI_SYMBOLPIN_H
+#ifndef LIBREPCB_PROJECT_SI_SYMBOLPIN_H
+#define LIBREPCB_PROJECT_SI_SYMBOLPIN_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "si_base.h"
 #include "../../erc/if_ercmsgprovider.h"
 #include "../graphicsitems/sgi_symbolpin.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
-namespace project {
-class Circuit;
-class GenCompSignalInstance;
-class SI_Symbol;
-class SI_NetPoint;
-class ErcMsg;
-}
+namespace librepcb {
 
 namespace library {
 class SymbolPin;
-class GenCompSignal;
+class ComponentSignal;
+class ComponentPinSignalMapItem;
 }
+
+namespace project {
+
+class Circuit;
+class ComponentSignalInstance;
+class SI_Symbol;
+class SI_NetPoint;
+class ErcMsg;
+
 
 /*****************************************************************************************
  *  Class SI_SymbolPin
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The SI_SymbolPin class
@@ -63,33 +63,38 @@ class SI_SymbolPin final : public SI_Base, public IF_ErcMsgProvider
     public:
 
         // Constructors / Destructor
-        explicit SI_SymbolPin(SI_Symbol& symbol, const QUuid& pinUuid);
+        SI_SymbolPin() = delete;
+        SI_SymbolPin(const SI_SymbolPin& other) = delete;
+        explicit SI_SymbolPin(SI_Symbol& symbol, const Uuid& pinUuid);
         ~SI_SymbolPin();
 
         // Getters
-        Project& getProject() const noexcept;
-        Schematic& getSchematic() const noexcept;
-        const QUuid& getLibPinUuid() const noexcept;
-        QString getDisplayText(bool returnGenCompSignalNameIfEmpty = false,
+        const Uuid& getLibPinUuid() const noexcept;
+        QString getDisplayText(bool returnCmpSignalNameIfEmpty = false,
                                bool returnPinNameIfEmpty = false) const noexcept;
         SI_Symbol& getSymbol() const noexcept {return mSymbol;}
         SI_NetPoint* getNetPoint() const noexcept {return mRegisteredNetPoint;}
         const library::SymbolPin& getLibPin() const noexcept {return *mSymbolPin;}
-        const library::GenCompSignal* getGenCompSignal() const noexcept {return mGenCompSignal;}
-        GenCompSignalInstance* getGenCompSignalInstance() const noexcept {return mGenCompSignalInstance;}
+        ComponentSignalInstance* getComponentSignalInstance() const noexcept {return mComponentSignalInstance;}
+        NetSignal* getCompSigInstNetSignal() const noexcept;
+        bool isRequired() const noexcept;
+        bool isUsed() const noexcept {return mRegisteredNetPoint ? true : false;}
 
         // General Methods
+        void addToSchematic(GraphicsScene& scene) throw (Exception) override;
+        void removeFromSchematic(GraphicsScene& scene) throw (Exception) override;
+        void registerNetPoint(SI_NetPoint& netpoint) throw (Exception);
+        void unregisterNetPoint(SI_NetPoint& netpoint) throw (Exception);
         void updatePosition() noexcept;
-        void registerNetPoint(SI_NetPoint& netpoint);
-        void unregisterNetPoint(SI_NetPoint& netpoint);
-        void addToSchematic(GraphicsScene& scene) noexcept;
-        void removeFromSchematic(GraphicsScene& scene) noexcept;
 
         // Inherited from SI_Base
         Type_t getType() const noexcept override {return SI_Base::Type_t::SymbolPin;}
         const Point& getPosition() const noexcept override {return mPosition;}
         QPainterPath getGrabAreaScenePx() const noexcept override;
         void setSelected(bool selected) noexcept override;
+
+        // Operator Overloadings
+        SI_SymbolPin& operator=(const SI_SymbolPin& rhs) = delete;
 
 
     private slots:
@@ -99,30 +104,28 @@ class SI_SymbolPin final : public SI_Base, public IF_ErcMsgProvider
 
     private:
 
-        // make some methods inaccessible...
-        SI_SymbolPin();
-        SI_SymbolPin(const SI_SymbolPin& other);
-        SI_SymbolPin& operator=(const SI_SymbolPin& rhs);
-
-
         // General
-        Circuit& mCircuit;
         SI_Symbol& mSymbol;
         const library::SymbolPin* mSymbolPin;
-        const library::GenCompSignal* mGenCompSignal;
-        GenCompSignalInstance* mGenCompSignalInstance;
-        Point mPosition;
-        Angle mRotation;
+        const library::ComponentPinSignalMapItem* mPinSignalMapItem;
+        ComponentSignalInstance* mComponentSignalInstance;
+        QMetaObject::Connection mHighlightChangedConnection;
 
         // Misc
-        bool mAddedToSchematic;
+        Point mPosition;
+        Angle mRotation;
         SI_NetPoint* mRegisteredNetPoint;
-        SGI_SymbolPin* mGraphicsItem;
+        QScopedPointer<SGI_SymbolPin> mGraphicsItem;
 
         /// @brief The ERC message for unconnected required pins
         QScopedPointer<ErcMsg> mErcMsgUnconnectedRequiredPin;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SI_SYMBOLPIN_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SI_SYMBOLPIN_H

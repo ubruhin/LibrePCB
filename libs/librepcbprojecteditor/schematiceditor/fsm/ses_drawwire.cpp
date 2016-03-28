@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_drawwire.h"
 #include "../schematiceditor.h"
@@ -39,17 +38,25 @@
 #include <librepcblibrary/sym/symbolpin.h>
 #include <librepcbproject/schematics/items/si_symbol.h>
 #include <librepcbproject/schematics/items/si_symbolpin.h>
-#include <librepcbproject/circuit/gencompsignalinstance.h>
-#include <librepcbproject/circuit/cmd/cmdgencompsiginstsetnetsignal.h>
+#include <librepcbproject/circuit/componentsignalinstance.h>
+#include <librepcbproject/circuit/cmd/cmdcompsiginstsetnetsignal.h>
 #include <librepcbproject/circuit/cmd/cmdnetclassadd.h>
 #include <librepcbproject/schematics/cmd/cmdschematicnetlineremove.h>
 #include <librepcbproject/schematics/cmd/cmdschematicnetpointremove.h>
 #include <librepcbproject/schematics/items/si_netline.h>
 #include <librepcbproject/schematics/cmd/cmdschematicnetpointedit.h>
+#include <librepcbproject/schematics/cmd/cmdschematicnetlabeledit.h>
 #include <librepcbproject/circuit/cmd/cmdnetsignalremove.h>
 #include <librepcbproject/circuit/cmd/cmdnetsignaledit.h>
 #include <librepcbcommon/gridproperties.h>
+#include "../../cmd/cmdcombineschematicnetpoints.h"
+#include "../../cmd/cmdplaceschematicnetpoint.h"
+#include "../../cmd/cmdcombineallnetsignalsunderschematicnetpoint.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -135,17 +142,17 @@ bool SES_DrawWire::entry(SEE_Base* event) noexcept
     mNetClassComboBox->setInsertPolicy(QComboBox::NoInsert);
     mNetClassComboBox->setEditable(true);
     foreach (NetClass* netclass, mEditor.getProject().getCircuit().getNetClasses())
-        mNetClassComboBox->addItem(netclass->getName(), netclass->getUuid());
+        mNetClassComboBox->addItem(netclass->getName(), netclass->getUuid().toStr());
     mNetClassComboBox->model()->sort(0);
     mNetClassComboBox->setCurrentIndex(0);
     mNetClassAddCon = connect(&mProject.getCircuit(), &Circuit::netClassAdded,
-        [this](NetClass& netclass){if (mNetClassComboBox)
-        mNetClassComboBox->addItem(netclass.getName(), netclass.getUuid());
-        mNetClassComboBox->model()->sort(0);});
+        [this](NetClass& netclass){if (mNetClassComboBox) {
+        mNetClassComboBox->addItem(netclass.getName(), netclass.getUuid().toStr());
+        mNetClassComboBox->model()->sort(0);}});
     mNetClassRemoveCon = connect(&mProject.getCircuit(), &Circuit::netClassRemoved,
-        [this](NetClass& netclass){if (mNetClassComboBox)
-        mNetClassComboBox->removeItem(mNetClassComboBox->findData(netclass.getUuid()));
-        mNetClassComboBox->model()->sort(0);});
+        [this](NetClass& netclass){if (mNetClassComboBox) {
+        mNetClassComboBox->removeItem(mNetClassComboBox->findData(netclass.getUuid().toStr()));
+        mNetClassComboBox->model()->sort(0);}});
     mEditorUi.commandToolbar->addWidget(mNetClassComboBox);
 
     // add the "Signal:" label to the toolbar
@@ -159,17 +166,17 @@ bool SES_DrawWire::entry(SEE_Base* event) noexcept
     mNetSignalComboBox->setInsertPolicy(QComboBox::NoInsert);
     mNetSignalComboBox->setEditable(true);
     foreach (NetSignal* netsignal, mEditor.getProject().getCircuit().getNetSignals())
-        mNetSignalComboBox->addItem(netsignal->getName(), netsignal->getUuid());
+        mNetSignalComboBox->addItem(netsignal->getName(), netsignal->getUuid().toStr());
     mNetSignalComboBox->model()->sort(0);
     mNetSignalComboBox->setCurrentIndex(-1);
     mNetSignalAddCon = connect(&mProject.getCircuit(), &Circuit::netSignalAdded,
-        [this](NetSignal& netsignal){if (mNetSignalComboBox)
-        mNetSignalComboBox->addItem(netsignal.getName(), netsignal.getUuid());
-        mNetSignalComboBox->model()->sort(0);});
+        [this](NetSignal& netsignal){if (mNetSignalComboBox) {
+        mNetSignalComboBox->addItem(netsignal.getName(), netsignal.getUuid().toStr());
+        mNetSignalComboBox->model()->sort(0);}});
     mNetSignalRemoveCon = connect(&mProject.getCircuit(), &Circuit::netSignalRemoved,
-        [this](NetSignal& netsignal){if (mNetSignalComboBox)
-        mNetSignalComboBox->removeItem(mNetSignalComboBox->findData(netsignal.getUuid()));
-        mNetSignalComboBox->model()->sort(0);});
+        [this](NetSignal& netsignal){if (mNetSignalComboBox) {
+        mNetSignalComboBox->removeItem(mNetSignalComboBox->findData(netsignal.getUuid().toStr()));
+        mNetSignalComboBox->model()->sort(0);}});
     mEditorUi.commandToolbar->addWidget(mNetSignalComboBox);
 
     // add the "Width:" label to the toolbar
@@ -251,13 +258,12 @@ SES_Base::ProcRetVal SES_DrawWire::processIdleSceneEvent(SEE_Base* event) noexce
         {
             QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
             Point pos = Point::fromPx(sceneEvent->scenePos(), mEditor.getGridProperties().getInterval());
-            Schematic& schematic = *mEditor.getActiveSchematic();
 
             switch (sceneEvent->button())
             {
                 case Qt::LeftButton:
                     // start adding netpoints/netlines
-                    startPositioning(schematic, pos);
+                    startPositioning(*schematic, pos);
                     return ForceStayInState;
                 default:
                     break;
@@ -306,12 +312,29 @@ SES_Base::ProcRetVal SES_DrawWire::processPositioningSceneEvent(SEE_Base* event)
                     addNextNetPoint(*schematic, pos);
                     return ForceStayInState;
                 case Qt::RightButton:
-                    // switch to next wire mode
-                    mWireMode = static_cast<WireMode>(mWireMode+1);
-                    if (mWireMode == WireMode_COUNT) mWireMode = static_cast<WireMode>(0);
-                    updateWireModeActionsCheckedState();
-                    updateNetpointPositions(pos);
                     return ForceStayInState;
+                default:
+                    break;
+            }
+            break;
+        }
+
+        case QEvent::GraphicsSceneMouseRelease:
+        {
+            QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
+            Point pos = Point::fromPx(sceneEvent->scenePos(), mEditor.getGridProperties().getInterval());
+            switch (sceneEvent->button())
+            {
+                case Qt::RightButton:
+                    if (sceneEvent->screenPos() == sceneEvent->buttonDownScreenPos(Qt::RightButton)) {
+                        // switch to next wire mode
+                        mWireMode = static_cast<WireMode>(mWireMode+1);
+                        if (mWireMode == WireMode_COUNT) mWireMode = static_cast<WireMode>(0);
+                        updateWireModeActionsCheckedState();
+                        updateNetpointPositions(pos);
+                        return ForceStayInState;
+                    }
+                    break;
                 default:
                     break;
             }
@@ -339,164 +362,73 @@ bool SES_DrawWire::startPositioning(Schematic& schematic, const Point& pos,
 {
     try
     {
-        NetClass* netclass = nullptr;
-        NetSignal* netsignal = nullptr;
-
         // start a new undo command
         Q_ASSERT(mSubState == SubState_Idle);
-        mUndoStack.beginCommand(tr("Draw Wire"));
+        mUndoStack.beginCmdGroup(tr("Draw Wire"));
         mSubState = SubState_PositioningNetPoint;
 
-        // check if the fixed netpoint does already exist in the schematic
-        if (!fixedPoint)
-        {
-            QList<SI_NetPoint*> pointsUnderCursor = schematic.getNetPointsAtScenePos(pos);
-            if (!pointsUnderCursor.isEmpty()) mFixedNetPoint = pointsUnderCursor.first();
-        }
-        else
+        // determine the fixed netpoint (create one if it doesn't exist already)
+        if (fixedPoint) {
             mFixedNetPoint = fixedPoint;
-
-        if (mFixedNetPoint)
-        {
-            netsignal = mFixedNetPoint->getNetSignal();
-            Q_ASSERT(netsignal);
-            netclass = &netsignal->getNetClass();
-            Q_ASSERT(netclass);
+        } else {
+            QString netclassName = mNetClassComboBox->currentText().trimmed();
+            QString netsignalName = mNetSignalComboBox->currentText().trimmed();
+            CmdPlaceSchematicNetPoint* cmd = new CmdPlaceSchematicNetPoint(schematic, pos,
+                                                                           netclassName,
+                                                                           netsignalName);
+            mUndoStack.appendToCmdGroup(cmd); // can throw
+            mFixedNetPoint = cmd->getNetPoint();
         }
-        else
-        {
-            QString forcedNetSignalName;
-
-            // look whether there is a symbol pin or a netline under the cursor
-            QList<SI_SymbolPin*> pinsUnderCursor = schematic.getPinsAtScenePos(pos);
-            SI_SymbolPin* pinUnderCursor = pinsUnderCursor.isEmpty() ? nullptr : pinsUnderCursor.first();
-            QList<SI_NetLine*> netlinesUnderCursor = schematic.getNetLinesAtScenePos(pos);
-            SI_NetLine* netlineUnderCursor = netlinesUnderCursor.isEmpty() ? nullptr : netlinesUnderCursor.first();
-
-            if (pinUnderCursor)
-            {
-                // check if the pin's signal forces a net name
-                if (pinUnderCursor->getGenCompSignalInstance()->isNetSignalNameForced())
-                {
-                    forcedNetSignalName = pinUnderCursor->getGenCompSignalInstance()->getForcedNetSignalName();
-                    netsignal = mProject.getCircuit().getNetSignalByName(forcedNetSignalName);
-                    if (netsignal) netclass = &netsignal->getNetClass();
-                }
-            }
-            else if (netlineUnderCursor)
-            {
-                netsignal = netlineUnderCursor->getNetSignal();
-                Q_ASSERT(netsignal);
-                netclass = &netsignal->getNetClass();
-            }
-
-            // get selected netclass or create a new netclass
-            if (!netclass)
-            {
-                QString netclassName = mNetClassComboBox->currentText().trimmed();
-                netclass = mProject.getCircuit().getNetClassByName(netclassName);
-                if (!netclass)
-                {
-                    // add new netclass
-                    CmdNetClassAdd* cmdClassAdd = new CmdNetClassAdd(mProject.getCircuit(), netclassName);
-                    mUndoStack.appendToCommand(cmdClassAdd);
-                    netclass = cmdClassAdd->getNetClass();
-                    Q_ASSERT(netclass);
-                }
-            }
-
-            // add new netsignal if needed
-            if (!netsignal)
-            {
-                if (forcedNetSignalName.isEmpty())
-                    forcedNetSignalName = mNetSignalComboBox->currentText().trimmed();
-                netsignal = mProject.getCircuit().getNetSignalByName(forcedNetSignalName);
-                if (!netsignal)
-                {
-                    CmdNetSignalAdd* cmdSignalAdd = new CmdNetSignalAdd(mCircuit,
-                        *netclass, forcedNetSignalName);
-                    mUndoStack.appendToCommand(cmdSignalAdd);
-                    netsignal = cmdSignalAdd->getNetSignal();
-                    Q_ASSERT(netsignal);
-                }
-            }
-
-            // add first netpoint
-            CmdSchematicNetPointAdd* cmdNetPointAdd1 = nullptr;
-            if (pinUnderCursor)
-            {
-                GenCompSignalInstance* i = pinUnderCursor->getGenCompSignalInstance();
-                Q_ASSERT(i); if (!i) throw LogicError(__FILE__, __LINE__);
-                Q_ASSERT(!i->getNetSignal()); if (i->getNetSignal()) throw LogicError(__FILE__, __LINE__);
-                CmdGenCompSigInstSetNetSignal* cmdSetSignal = new CmdGenCompSigInstSetNetSignal(*i, netsignal);
-                mUndoStack.appendToCommand(cmdSetSignal);
-                cmdNetPointAdd1 = new CmdSchematicNetPointAdd(schematic, *pinUnderCursor);
-            }
-            else
-            {
-                cmdNetPointAdd1 = new CmdSchematicNetPointAdd(schematic, *netsignal, pos);
-            }
-            mUndoStack.appendToCommand(cmdNetPointAdd1);
-            mFixedNetPoint = cmdNetPointAdd1->getNetPoint();
-            Q_ASSERT(mFixedNetPoint);
-            Q_ASSERT(mFixedNetPoint->getNetSignal());
-            Q_ASSERT(mFixedNetPoint->getNetSignal() == netsignal);
-
-            if ((!pinUnderCursor) && (netlineUnderCursor))
-            {
-                // split existing netline
-                SI_NetPoint& p1 = netlineUnderCursor->getStartPoint();
-                SI_NetPoint& p2 = netlineUnderCursor->getEndPoint();
-                CmdSchematicNetLineRemove* cmdRemove = new CmdSchematicNetLineRemove(schematic, *netlineUnderCursor);
-                mUndoStack.appendToCommand(cmdRemove);
-                CmdSchematicNetLineAdd* cmdAdd1 = new CmdSchematicNetLineAdd(schematic, p1, *mFixedNetPoint);
-                mUndoStack.appendToCommand(cmdAdd1);
-                CmdSchematicNetLineAdd* cmdAdd2 = new CmdSchematicNetLineAdd(schematic, *mFixedNetPoint, p2);
-                mUndoStack.appendToCommand(cmdAdd2);
-            }
-        }
+        Q_ASSERT(mFixedNetPoint);
+        NetSignal* netsignal = &mFixedNetPoint->getNetSignal();
+        NetClass* netclass = &netsignal->getNetClass();
 
         // update the command toolbar
-        mNetClassComboBox->setCurrentIndex(mNetClassComboBox->findData(netclass->getUuid()));
-        mNetSignalComboBox->setCurrentIndex(mNetSignalComboBox->findData(netsignal->getUuid()));
+        mNetClassComboBox->setCurrentIndex(mNetClassComboBox->findData(netclass->getUuid().toStr()));
+        mNetSignalComboBox->setCurrentIndex(mNetSignalComboBox->findData(netsignal->getUuid().toStr()));
 
         // add second netpoint
         CmdSchematicNetPointAdd* cmdNetPointAdd2 = new CmdSchematicNetPointAdd(
             schematic, *netsignal, pos);
-        mUndoStack.appendToCommand(cmdNetPointAdd2);
+        mUndoStack.appendToCmdGroup(cmdNetPointAdd2);
         mPositioningNetPoint1 = cmdNetPointAdd2->getNetPoint();
         Q_ASSERT(mPositioningNetPoint1);
 
         // add first netline
         CmdSchematicNetLineAdd* cmdNetLineAdd1 = new CmdSchematicNetLineAdd(
             schematic, *mFixedNetPoint, *cmdNetPointAdd2->getNetPoint());
-        mUndoStack.appendToCommand(cmdNetLineAdd1);
+        mUndoStack.appendToCmdGroup(cmdNetLineAdd1);
         mPositioningNetLine1 = cmdNetLineAdd1->getNetLine();
         Q_ASSERT(mPositioningNetLine1);
 
         // add third netpoint
         CmdSchematicNetPointAdd* cmdNetPointAdd3 = new CmdSchematicNetPointAdd(
             schematic, *netsignal, pos);
-        mUndoStack.appendToCommand(cmdNetPointAdd3);
+        mUndoStack.appendToCmdGroup(cmdNetPointAdd3);
         mPositioningNetPoint2 = cmdNetPointAdd3->getNetPoint();
         Q_ASSERT(mPositioningNetPoint2);
 
         // add second netline
         CmdSchematicNetLineAdd* cmdNetLineAdd2 = new CmdSchematicNetLineAdd(
             schematic, *cmdNetPointAdd2->getNetPoint(), *cmdNetPointAdd3->getNetPoint());
-        mUndoStack.appendToCommand(cmdNetLineAdd2);
+        mUndoStack.appendToCmdGroup(cmdNetLineAdd2);
         mPositioningNetLine2 = cmdNetLineAdd2->getNetLine();
         Q_ASSERT(mPositioningNetLine2);
 
-        // place the new netpoints/netlines correctly
+        // properly place the new netpoints/netlines according the current wire mode
         updateNetpointPositions(pos);
+
+        // highlight all elements of the current netsignal
+        mCircuit.setHighlightedNetSignal(netsignal);
 
         return true;
     }
     catch (Exception e)
     {
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        if (mSubState != SubState_Idle) abortPositioning(false);
+        if (mSubState != SubState_Idle) {
+            abortPositioning(false);
+        }
         return false;
     }
 }
@@ -504,356 +436,61 @@ bool SES_DrawWire::startPositioning(Schematic& schematic, const Point& pos,
 bool SES_DrawWire::addNextNetPoint(Schematic& schematic, const Point& pos) noexcept
 {
     Q_ASSERT(mSubState == SubState_PositioningNetPoint);
-    bool finishCommand = false;
 
     // abort if p2 == p0 (no line drawn)
-    if (pos == mFixedNetPoint->getPosition())
-    {
+    if (pos == mFixedNetPoint->getPosition()) {
         abortPositioning(true);
         return false;
-    }
+    } else {
+        bool finishCommand = false;
 
-    try
-    {
-        // remove p1 if p1 == p0
-        if (mPositioningNetPoint1->getPosition() == mFixedNetPoint->getPosition())
+        try
         {
-            auto cmd1 = new CmdSchematicNetLineRemove(schematic, *mPositioningNetLine1);
-            mUndoStack.appendToCommand(cmd1);
-            auto cmd2 = new CmdSchematicNetLineRemove(schematic, *mPositioningNetLine2);
-            mUndoStack.appendToCommand(cmd2);
-            auto cmd3 = new CmdSchematicNetPointRemove(schematic, *mPositioningNetPoint1);
-            mUndoStack.appendToCommand(cmd3);
-            auto cmd4 = new CmdSchematicNetLineAdd(schematic, *mFixedNetPoint, *mPositioningNetPoint2);
-            mUndoStack.appendToCommand(cmd4);
-            mPositioningNetLine1 = nullptr;
-            mPositioningNetPoint1 = nullptr;
-            mPositioningNetLine2 = cmd4->getNetLine();
+            // remove p1 if p1 == p0 || p1 == p2
+            if (mPositioningNetPoint1->getPosition() == mFixedNetPoint->getPosition()) {
+                mUndoStack.appendToCmdGroup(new CmdCombineSchematicNetPoints(*mPositioningNetPoint1, *mFixedNetPoint));
+            } else if (mPositioningNetPoint1->getPosition() == mPositioningNetPoint2->getPosition()) {
+                mUndoStack.appendToCmdGroup(new CmdCombineSchematicNetPoints(*mPositioningNetPoint1, *mPositioningNetPoint2));
+            }
+
+            // combine all schematic items under "mPositioningNetPoint2" together
+            auto* cmd = new CmdCombineAllNetSignalsUnderSchematicNetPoint(*mPositioningNetPoint2);
+            mUndoStack.appendToCmdGroup(cmd);
+            finishCommand = cmd->hasCombinedSomeItems();
+        }
+        catch (UserCanceled& e)
+        {
+            return false;
+        }
+        catch (Exception& e)
+        {
+            QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
+            return false;
         }
 
-        // combine all netpoints of the same type at cursor position (result: mPositioningNetPoint2)
-        QList<SI_NetPoint*> pointsUnderCursor = schematic.getNetPointsAtScenePos(pos);
-        foreach (SI_NetPoint* netpoint, pointsUnderCursor)
+        try
         {
-            if (netpoint == mFixedNetPoint) continue;
-            if (netpoint == mPositioningNetPoint2) continue;
-            if (netpoint->getNetSignal() != mPositioningNetPoint2->getNetSignal()) continue;
-            foreach (SI_NetLine* netline, netpoint->getLines())
-            {
-                auto start = (&netline->getStartPoint() == netpoint) ? mPositioningNetPoint2 : &netline->getStartPoint();
-                auto end = (&netline->getEndPoint() == netpoint) ? mPositioningNetPoint2 : &netline->getEndPoint();
-                auto cmd1 = new CmdSchematicNetLineRemove(schematic, *netline);
-                mUndoStack.appendToCommand(cmd1);
-                if (start != end)
-                {
-                    auto cmd2 = new CmdSchematicNetLineAdd(schematic, *start, *end);
-                    mUndoStack.appendToCommand(cmd2);
-                    if (netline == mPositioningNetLine1) mPositioningNetLine1 = cmd2->getNetLine();
-                    if (netline == mPositioningNetLine2) mPositioningNetLine2 = cmd2->getNetLine();
-                }
-                else
-                {
-                    if (netline == mPositioningNetLine1) mPositioningNetLine1 = nullptr;
-                    if (netline == mPositioningNetLine2) mPositioningNetLine2 = nullptr;
-                }
-            }
-            auto cmd1 = new CmdSchematicNetPointRemove(schematic, *netpoint);
-            mUndoStack.appendToCommand(cmd1);
-            if (netpoint == mPositioningNetPoint1) mPositioningNetPoint1 = nullptr;
-        }
-        if (!mPositioningNetPoint1) mPositioningNetPoint1 = mFixedNetPoint; // ugly!
-        if (!mPositioningNetLine2) mPositioningNetLine2 = mPositioningNetLine1; // ugly!
-
-        // check if there is a netpoint with different netsignal under the cursor
-        pointsUnderCursor = schematic.getNetPointsAtScenePos(pos);
-        pointsUnderCursor.removeOne(mPositioningNetPoint2);
-        if (pointsUnderCursor.count() == 1)
-        {
-            SI_NetPoint* pointUnderCursor = pointsUnderCursor.first();
-            Q_ASSERT(mPositioningNetPoint2->getNetSignal() != pointUnderCursor->getNetSignal());
-            // determine the resulting netsignal
-            NetSignal* originalSignal = nullptr;
-            NetSignal* combinedSignal = nullptr;
-            if (mPositioningNetPoint2->getNetSignal()->hasAutoName())
-            {
-                originalSignal = mPositioningNetPoint2->getNetSignal();
-                combinedSignal = pointUnderCursor->getNetSignal();
-            }
-            else if (pointUnderCursor->getNetSignal()->hasAutoName())
-            {
-                originalSignal = pointUnderCursor->getNetSignal();
-                combinedSignal = mPositioningNetPoint2->getNetSignal();
-            }
-            else
-            {
-                // choose the resulting netsignal with a context menu
-                QMenu menu;
-                menu.addSection(tr("Resulting Signal:"));
-                auto a1 = menu.addAction(mPositioningNetPoint2->getNetSignal()->getName());
-                auto a2 = menu.addAction(pointUnderCursor->getNetSignal()->getName());
-                menu.addSeparator();
-                menu.addAction(QIcon(":/img/actions/cancel.png"), tr("Abort"))->setShortcut(Qt::Key_Escape);
-                auto a = menu.exec(QCursor::pos(), a1);
-                if (a == a1)
-                {
-                    originalSignal = pointUnderCursor->getNetSignal();
-                    combinedSignal = mPositioningNetPoint2->getNetSignal();
-                }
-                else if (a == a2)
-                {
-                    originalSignal = mPositioningNetPoint2->getNetSignal();
-                    combinedSignal = pointUnderCursor->getNetSignal();
-                }
-                else
-                    return false; // context menu aborted
-            }
-
-            // combine both netsignals
-            foreach (GenCompSignalInstance* signal, originalSignal->getGenCompSignals())
-            {
-                auto cmd = new CmdGenCompSigInstSetNetSignal(*signal, combinedSignal);
-                mUndoStack.appendToCommand(cmd);
-            }
-            foreach (SI_NetPoint* point, originalSignal->getNetPoints())
-            {
-                auto cmd = new CmdSchematicNetPointEdit(*point);
-                cmd->setNetSignal(*combinedSignal);
-                mUndoStack.appendToCommand(cmd);
-            }
-
-            // remove the original netsignal
-            auto cmd = new CmdNetSignalRemove(mProject.getCircuit(), *originalSignal);
-            mUndoStack.appendToCommand(cmd);
-
-            // remove the last netline and netpoint
-            auto cmd1 = new CmdSchematicNetLineRemove(schematic, *mPositioningNetLine2);
-            mUndoStack.appendToCommand(cmd1);
-            auto cmd2 = new CmdSchematicNetPointRemove(schematic, *mPositioningNetPoint2);
-            mUndoStack.appendToCommand(cmd2);
-            mPositioningNetPoint2 = pointUnderCursor;
-            // add a new netline to the netpoint under the cursor
-            auto cmd3 = new CmdSchematicNetLineAdd(schematic,
-                *mPositioningNetPoint1, *mPositioningNetPoint2);
-            mUndoStack.appendToCommand(cmd3);
             // finish the current command
-            finishCommand = true;
+            mUndoStack.commitCmdGroup();
+            mSubState = SubState_Idle;
 
-        }
-        else if (pointsUnderCursor.count() > 1)
-        {
-            QMessageBox::warning(&mEditor, tr("Warning"), tr("There are multiple signals a this point."));
-            return false;
-        }
-        else if (pointsUnderCursor.count() == 0)
-        {
-            // check if a pin is under the cursor
-            QList<SI_SymbolPin*> pinsUnderCursor = schematic.getPinsAtScenePos(pos);
-            if (pinsUnderCursor.count() == 1)
-            {
-                SI_SymbolPin* pin = pinsUnderCursor.first();
-
-                // rename the net signal if required
-                NetSignal* netsignal = mPositioningNetPoint2->getNetSignal();
-                QString forcedName = pin->getGenCompSignalInstance()->getForcedNetSignalName();
-                if ((pin->getGenCompSignalInstance()->isNetSignalNameForced()) && (netsignal->getName() != forcedName))
-                {
-                    NetSignal* newNetsignal = mCircuit.getNetSignalByName(forcedName);
-                    if (newNetsignal)
-                    {
-                        // replace the netsignal
-                        foreach (GenCompSignalInstance* signal, netsignal->getGenCompSignals())
-                        {
-                            auto cmd = new CmdGenCompSigInstSetNetSignal(*signal, newNetsignal);
-                            mUndoStack.appendToCommand(cmd);
-                        }
-                        foreach (SI_NetPoint* point, netsignal->getNetPoints())
-                        {
-                            auto cmd = new CmdSchematicNetPointEdit(*point);
-                            cmd->setNetSignal(*newNetsignal);
-                            mUndoStack.appendToCommand(cmd);
-                        }
-                        auto cmd = new CmdNetSignalRemove(mProject.getCircuit(), *netsignal);
-                        mUndoStack.appendToCommand(cmd);
-                    }
-                    else
-                    {
-                        // rename the netsignal
-                        auto cmd = new CmdNetSignalEdit(mCircuit, *netsignal);
-                        cmd->setName(forcedName, false);
-                        mUndoStack.appendToCommand(cmd);
-                    }
-                }
-                // add the pin's component signal to the current netsignal
-                auto cmd1 = new CmdGenCompSigInstSetNetSignal(
-                    *pin->getGenCompSignalInstance(), mPositioningNetPoint2->getNetSignal());
-                mUndoStack.appendToCommand(cmd1);
-                // remove the current point/line
-                auto cmd2 = new CmdSchematicNetLineRemove(schematic, *mPositioningNetLine2);
-                mUndoStack.appendToCommand(cmd2);
-                auto cmd3 = new CmdSchematicNetPointRemove(schematic, *mPositioningNetPoint2);
-                mUndoStack.appendToCommand(cmd3);
-                // add a new netpoint and netline to the pin
-                auto cmd4 = new CmdSchematicNetPointAdd(schematic, *pin);
-                mUndoStack.appendToCommand(cmd4);
-                mPositioningNetPoint2 = cmd4->getNetPoint();
-                auto cmd5 = new CmdSchematicNetLineAdd(schematic,
-                    *mPositioningNetPoint1, *mPositioningNetPoint2);
-                mUndoStack.appendToCommand(cmd5);
-                mPositioningNetLine2 = cmd5->getNetLine();
-                // finish the current command
-                finishCommand = true;
-            }
-            else if (pinsUnderCursor.count() > 1)
-            {
-                QMessageBox::warning(&mEditor, tr("Warning"), tr("There are multiple pins a this point."));
+            // abort or start a new command
+            if (finishCommand) {
+                mUndoStack.beginCmdGroup(QString()); // this is ugly!
+                abortPositioning(true);
                 return false;
-            }
-            else if (pinsUnderCursor.count() == 0)
-            {
-                // check if there is a netline under the cursor
-                QList<SI_NetLine*> netlinesUnderCursor = schematic.getNetLinesAtScenePos(pos);
-                netlinesUnderCursor.removeOne(mPositioningNetLine2);
-                if (netlinesUnderCursor.count() == 1)
-                {
-                    SI_NetLine* netlineUnderCursor = netlinesUnderCursor.first();
-                    NetSignal* netsignalUnderCursor = netlineUnderCursor->getNetSignal();
-                    NetSignal* currentNetsignal = mPositioningNetPoint2->getNetSignal();
-
-                    // check if the netsignals must be combined
-                    if (netsignalUnderCursor != currentNetsignal)
-                    {
-                        // check which netsignal to remove
-                        NetSignal* netsignalToRemove;
-                        NetSignal* combinedNetsignal;
-                        if ((!currentNetsignal->isNameForced()) && (!netsignalUnderCursor->isNameForced()))
-                        {
-                            if ((!currentNetsignal->hasAutoName()) && (!netsignalUnderCursor->hasAutoName()))
-                            {
-                                netsignalToRemove = netsignalUnderCursor;
-                                combinedNetsignal = currentNetsignal;
-                            }
-                            else if ((!currentNetsignal->hasAutoName()) && (netsignalUnderCursor->hasAutoName()))
-                            {
-                                netsignalToRemove = netsignalUnderCursor;
-                                combinedNetsignal = currentNetsignal;
-                            }
-                            else if ((currentNetsignal->hasAutoName()) && (!netsignalUnderCursor->hasAutoName()))
-                            {
-                                netsignalToRemove = currentNetsignal;
-                                combinedNetsignal = netsignalUnderCursor;
-                            }
-                            else
-                            {
-                                // let the user choose the resulting netsignal with a context menu
-                                QMenu menu;
-                                menu.addSection(tr("Resulting Signal:"));
-                                auto a1 = menu.addAction(currentNetsignal->getName());
-                                auto a2 = menu.addAction(netsignalUnderCursor->getName());
-                                menu.addSeparator();
-                                menu.addAction(QIcon(":/img/actions/cancel.png"), tr("Abort"))->setShortcut(Qt::Key_Escape);
-                                auto a = menu.exec(QCursor::pos(), a1);
-                                if (a == a1)
-                                {
-                                    netsignalToRemove = netsignalUnderCursor;
-                                    combinedNetsignal = currentNetsignal;
-                                }
-                                else if (a == a2)
-                                {
-                                    netsignalToRemove = netsignalUnderCursor;
-                                    combinedNetsignal = currentNetsignal;
-                                }
-                                else
-                                {
-                                    // context menu aborted
-                                    throw UserCanceled(__FILE__, __LINE__);
-                                }
-                            }
-                        }
-                        else if ((currentNetsignal->isNameForced()) && (!netsignalUnderCursor->isNameForced()))
-                        {
-                            netsignalToRemove = netsignalUnderCursor;
-                            combinedNetsignal = currentNetsignal;
-                        }
-                        else if ((!currentNetsignal->isNameForced()) && (netsignalUnderCursor->isNameForced()))
-                        {
-                            netsignalToRemove = currentNetsignal;
-                            combinedNetsignal = netsignalUnderCursor;
-                        }
-                        else
-                        {
-                            // both netsignals have forced names --> not possible to combine them!
-                            throw RuntimeError(__FILE__, __LINE__, QString(),
-                                tr("These nets cannot be connected together as both names are forced."));
-                        }
-
-                        // combine both netsignals
-                        foreach (GenCompSignalInstance* signal, netsignalToRemove->getGenCompSignals())
-                        {
-                            auto cmd = new CmdGenCompSigInstSetNetSignal(*signal, combinedNetsignal);
-                            mUndoStack.appendToCommand(cmd);
-                        }
-                        foreach (SI_NetPoint* point, netsignalToRemove->getNetPoints())
-                        {
-                            auto cmd = new CmdSchematicNetPointEdit(*point);
-                            cmd->setNetSignal(*combinedNetsignal);
-                            mUndoStack.appendToCommand(cmd);
-                        }
-                        auto cmd = new CmdNetSignalRemove(mProject.getCircuit(), *netsignalToRemove);
-                        mUndoStack.appendToCommand(cmd);
-                        netsignalUnderCursor = combinedNetsignal;
-                        currentNetsignal = combinedNetsignal;
-                    }
-
-                    // split existing netline
-                    SI_NetPoint& p1 = netlineUnderCursor->getStartPoint();
-                    SI_NetPoint& p2 = netlineUnderCursor->getEndPoint();
-                    CmdSchematicNetLineRemove* cmdRemove = new CmdSchematicNetLineRemove(schematic, *netlineUnderCursor);
-                    mUndoStack.appendToCommand(cmdRemove);
-                    CmdSchematicNetLineAdd* cmdAddLine1 = new CmdSchematicNetLineAdd(schematic, p1, *mPositioningNetPoint2);
-                    mUndoStack.appendToCommand(cmdAddLine1);
-                    CmdSchematicNetLineAdd* cmdAddLine2 = new CmdSchematicNetLineAdd(schematic, *mPositioningNetPoint2, p2);
-                    mUndoStack.appendToCommand(cmdAddLine2);
-                    mPositioningNetLine2 = nullptr;
-                }
-                else if (netlinesUnderCursor.count() > 1)
-                {
-                    QMessageBox::warning(&mEditor, tr("Warning"), tr("There are multiple lines a this point."));
-                    return false;
-                }
+            } else {
+                return startPositioning(schematic, pos, mPositioningNetPoint2);
             }
         }
-    }
-    catch (UserCanceled& e)
-    {
-        return false;
-    }
-    catch (Exception& e)
-    {
-        QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        return false;
-    }
-
-    try
-    {
-        // finish the current command
-        mUndoStack.endCommand();
-        mSubState = SubState_Idle;
-
-        // abort or start a new command
-        if (finishCommand)
+        catch (Exception e)
         {
-            mUndoStack.beginCommand(QString()); // this is ugly!
-            abortPositioning(true);
+            QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
+            if (mSubState != SubState_Idle) {
+                abortPositioning(false);
+            }
             return false;
         }
-        else
-            return startPositioning(schematic, pos, mPositioningNetPoint2);
-    }
-    catch (Exception e)
-    {
-        QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        if (mSubState != SubState_Idle) abortPositioning(false);
-        return false;
     }
 }
 
@@ -861,6 +498,7 @@ bool SES_DrawWire::abortPositioning(bool showErrMsgBox) noexcept
 {
     try
     {
+        mCircuit.setHighlightedNetSignal(nullptr);
         mSubState = SubState_Idle;
         mFixedNetPoint = nullptr;
         mPositioningNetLine1 = nullptr;
@@ -868,7 +506,7 @@ bool SES_DrawWire::abortPositioning(bool showErrMsgBox) noexcept
         mPositioningNetPoint1 = nullptr;
         mPositioningNetPoint2 = nullptr;
         mNetSignalComboBox->setCurrentIndex(-1);
-        mUndoStack.abortCommand(); // can throw an exception
+        mUndoStack.abortCmdGroup(); // can throw
         return true;
     }
     catch (Exception& e)
@@ -887,8 +525,7 @@ void SES_DrawWire::updateNetpointPositions(const Point& cursorPos) noexcept
 
 void SES_DrawWire::updateWireModeActionsCheckedState() noexcept
 {
-    foreach (WireMode key, mWireModeActions.keys())
-    {
+    foreach (WireMode key, mWireModeActions.keys()) {
         mWireModeActions.value(key)->setCheckable(key == mWireMode);
         mWireModeActions.value(key)->setChecked(key == mWireMode);
     }
@@ -914,7 +551,7 @@ Point SES_DrawWire::calcMiddlePointPos(const Point& p1, const Point p2, WireMode
             else
                 return Point(p2.getX(), p1.getY() + delta.getX().abs() * (delta.getY() >= 0 ? 1 : -1));
         case WireMode_Straight:
-            return p2;
+            return p1;
         default:
             Q_ASSERT(false);
             return Point();
@@ -926,3 +563,4 @@ Point SES_DrawWire::calcMiddlePointPos(const Point& p1, const Point p2, WireMode
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

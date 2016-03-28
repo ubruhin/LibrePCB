@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bes_select.h"
 #include "../boardeditor.h"
@@ -28,20 +27,26 @@
 #include <librepcbproject/boards/board.h>
 #include <librepcbproject/boards/items/bi_footprint.h>
 #include <librepcbproject/boards/items/bi_footprintpad.h>
-#include <librepcbcommon/gridproperties.h>
+#include <librepcbproject/boards/items/bi_via.h>
 #include <librepcbcommon/undostack.h>
-#include <librepcbproject/boards/cmd/cmdcomponentinstanceadd.h>
-#include <librepcbproject/boards/cmd/cmdcomponentinstanceedit.h>
-#include <librepcbproject/boards/cmd/cmdcomponentinstanceremove.h>
-#include <librepcbproject/boards/componentinstance.h>
-#include <librepcbproject/circuit/gencompinstance.h>
+#include <librepcbproject/boards/items/bi_device.h>
+#include <librepcbproject/circuit/componentinstance.h>
 #include <librepcbworkspace/workspace.h>
 #include <librepcblibrary/library.h>
 #include <librepcblibrary/elements.h>
 #include <librepcbproject/project.h>
-#include <librepcbproject/library/projectlibrary.h>
-#include <librepcbproject/library/cmd/cmdprojectlibraryaddelement.h>
+#include "../boardviapropertiesdialog.h"
+#include "../../cmd/cmdadddevicetoboard.h"
+#include "../../cmd/cmdmoveselectedboarditems.h"
+#include "../../cmd/cmdrotateselectedboarditems.h"
+#include "../../cmd/cmdflipselectedboarditems.h"
+#include "../../cmd/cmdremoveselectedboarditems.h"
+#include "../../cmd/cmdreplacedevice.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -50,22 +55,13 @@ namespace project {
 
 BES_Select::BES_Select(BoardEditor& editor, Ui::BoardEditor& editorUi,
                        GraphicsView& editorGraphicsView, UndoStack& undoStack) :
-    BES_Base(editor, editorUi, editorGraphicsView, undoStack), mSubState(SubState_Idle),
-    mParentCommand(nullptr)
+    BES_Base(editor, editorUi, editorGraphicsView, undoStack), mSubState(SubState_Idle)
 {
 }
 
 BES_Select::~BES_Select()
 {
-    try
-    {
-        qDeleteAll(mComponentEditCmds); mComponentEditCmds.clear();
-        delete mParentCommand;          mParentCommand = nullptr;
-    }
-    catch (Exception& e)
-    {
-        qWarning() << "Exception catched in the SES_SELECT destructor:" << e.getDebugMsg();
-    }
+    Q_ASSERT(mSelectedItemsMoveCommand.isNull());
 }
 
 /*****************************************************************************************
@@ -119,16 +115,16 @@ BES_Base::ProcRetVal BES_Select::processSubStateIdle(BEE_Base* event) noexcept
             //pasteItems();
             return ForceStayInState;
         case BEE_Base::Edit_RotateCW:
-            rotateSelectedItems(-Angle::deg90(), Point(), true);
+            rotateSelectedItems(-Angle::deg90());
             return ForceStayInState;
         case BEE_Base::Edit_RotateCCW:
-            rotateSelectedItems(Angle::deg90(), Point(), true);
+            rotateSelectedItems(Angle::deg90());
             return ForceStayInState;
         case BEE_Base::Edit_FlipHorizontal:
-            flipSelectedItems(false, Point(), true);
+            flipSelectedItems(Qt::Horizontal);
             return ForceStayInState;
         case BEE_Base::Edit_FlipVertical:
-            flipSelectedItems(true, Point(), true);
+            flipSelectedItems(Qt::Vertical);
             return ForceStayInState;
         case BEE_Base::Edit_Remove:
             removeSelectedItems();
@@ -145,7 +141,7 @@ BES_Base::ProcRetVal BES_Select::processSubStateIdleSceneEvent(BEE_Base* event) 
     QEvent* qevent = BEE_RedirectedQEvent::getQEventFromBEE(event);
     Q_ASSERT(qevent); if (!qevent) return PassToParentState;
     Board* board = mEditor.getActiveBoard();
-    Q_ASSERT(board); if (!board) return PassToParentState;
+    if (!board) return PassToParentState;
 
     switch (qevent->type())
     {
@@ -156,9 +152,7 @@ BES_Base::ProcRetVal BES_Select::processSubStateIdleSceneEvent(BEE_Base* event) 
             switch (mouseEvent->button())
             {
                 case Qt::LeftButton:
-                    return proccessIdleSceneLeftClick(mouseEvent, board);
-                case Qt::RightButton:
-                    return proccessIdleSceneRightClick(mouseEvent, board);
+                    return proccessIdleSceneLeftClick(mouseEvent, *board);
                 default:
                     break;
             }
@@ -168,11 +162,16 @@ BES_Base::ProcRetVal BES_Select::processSubStateIdleSceneEvent(BEE_Base* event) 
         {
             QGraphicsSceneMouseEvent* mouseEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
             Q_ASSERT(mouseEvent); if (!mouseEvent) break;
-            if (mouseEvent->button() == Qt::LeftButton)
+            switch (mouseEvent->button())
             {
-                // remove selection rectangle and keep the selection state of all items
-                board->setSelectionRect(Point(), Point(), false);
-                return ForceStayInState;
+                case Qt::LeftButton:
+                    // remove selection rectangle and keep the selection state of all items
+                    board->setSelectionRect(Point(), Point(), false);
+                    return ForceStayInState;
+                case Qt::RightButton:
+                    return proccessIdleSceneRightMouseButtonReleased(mouseEvent, board);
+                default:
+                    break;
             }
             break;
         }
@@ -203,32 +202,35 @@ BES_Base::ProcRetVal BES_Select::processSubStateIdleSceneEvent(BEE_Base* event) 
 }
 
 BES_Base::ProcRetVal BES_Select::proccessIdleSceneLeftClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                                            Board* board) noexcept
+                                                            Board& board) noexcept
 {
     // handle items selection
-    QList<BI_Base*> items = board->getItemsAtScenePos(Point::fromPx(mouseEvent->scenePos()));
+    QList<BI_Base*> items = board.getItemsAtScenePos(Point::fromPx(mouseEvent->scenePos()));
     if (items.isEmpty())
     {
         // no items under mouse --> start drawing a selection rectangle
-        board->clearSelection();
+        board.clearSelection();
         return ForceStayInState;
     }
     if (!items.first()->isSelected())
     {
         if (!(mouseEvent->modifiers() & Qt::ControlModifier)) // CTRL pressed
-            board->clearSelection(); // select only the top most item under the mouse
+            board.clearSelection(); // select only the top most item under the mouse
         items.first()->setSelected(true);
     }
 
-    if (startMovingSelectedItems(board))
+    if (startMovingSelectedItems(board, Point::fromPx(mouseEvent->scenePos())))
         return ForceStayInState;
     else
         return PassToParentState;
 }
 
-BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                                             Board* board) noexcept
+BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightMouseButtonReleased(
+        QGraphicsSceneMouseEvent* mouseEvent, Board* board) noexcept
 {
+    if (mouseEvent->screenPos() != mouseEvent->buttonDownScreenPos(Qt::RightButton))
+        return PassToParentState; // mouse moved -> don't show context menu!
+
     // handle item selection
     QList<BI_Base*> items = board->getItemsAtScenePos(Point::fromPx(mouseEvent->scenePos()));
     if (items.isEmpty()) return PassToParentState;
@@ -242,37 +244,37 @@ BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightClick(QGraphicsSceneMouse
         case BI_Base::Type_t::Footprint:
         {
             BI_Footprint* footprint = dynamic_cast<BI_Footprint*>(items.first()); Q_ASSERT(footprint);
-            ComponentInstance& compInst = footprint->getComponentInstance();
-            GenCompInstance& genCompInst = compInst.getGenCompInstance();
+            BI_Device& devInst = footprint->getDeviceInstance();
+            ComponentInstance& cmpInst = devInst.getComponentInstance();
 
-            // get all available alternative components
-            QSet<QUuid> compList = mWorkspace.getLibrary().getComponentsOfGenericComponent(genCompInst.getGenComp().getUuid());
+            // get all available alternative devices
+            QSet<Uuid> devicesList = mWorkspace.getLibrary().getDevicesOfComponent(cmpInst.getLibComponent().getUuid());
             //compList.remove(compInst.getLibComponent().getUuid());
 
             // build the context menu
             QAction* aRotateCCW = menu.addAction(QIcon(":/img/actions/rotate_left.png"), tr("Rotate"));
             QAction* aFlipH = menu.addAction(QIcon(":/img/actions/flip_horizontal.png"), tr("Flip"));
             menu.addSeparator();
-            QMenu* aChangeComponentMenu = menu.addMenu(tr("Change Component"));
-            aChangeComponentMenu->setEnabled(compList.count() > 0);
-            foreach (const QUuid& compUuid, compList)
+            QMenu* aChangeDeviceMenu = menu.addMenu(tr("Change Device"));
+            aChangeDeviceMenu->setEnabled(devicesList.count() > 0);
+            foreach (const Uuid& deviceUuid, devicesList)
             {
-                QUuid pkgUuid;
-                QString compName, pkgName;
-                FilePath compFp = mWorkspace.getLibrary().getLatestComponent(compUuid);
-                mWorkspace.getLibrary().getComponentMetadata(compFp, &pkgUuid, &compName);
+                Uuid pkgUuid;
+                QString devName, pkgName;
+                FilePath devFp = mWorkspace.getLibrary().getLatestDevice(deviceUuid);
+                mWorkspace.getLibrary().getDeviceMetadata(devFp, &pkgUuid, &devName);
                 FilePath pkgFp = mWorkspace.getLibrary().getLatestPackage(pkgUuid);
-                mWorkspace.getLibrary().getPackageMetadata(pkgFp, &pkgUuid, &pkgName);
-                QAction* a = aChangeComponentMenu->addAction(QString("%1 [%2]").arg(compName).arg(pkgName));
-                a->setData(compUuid);
-                if (compUuid == compInst.getLibComponent().getUuid())
+                mWorkspace.getLibrary().getPackageMetadata(pkgFp, &pkgName);
+                QAction* a = aChangeDeviceMenu->addAction(QString("%1 [%2]").arg(devName).arg(pkgName));
+                a->setData(deviceUuid.toStr());
+                if (deviceUuid == devInst.getLibDevice().getUuid())
                 {
                     a->setCheckable(true);
                     a->setChecked(true);
                     a->setEnabled(false);
                 }
             }
-            QAction* aRemove = menu.addAction(QIcon(":/img/actions/delete.png"), QString(tr("Remove %1")).arg(genCompInst.getName()));
+            QAction* aRemove = menu.addAction(QIcon(":/img/actions/delete.png"), QString(tr("Remove %1")).arg(cmpInst.getName()));
             menu.addSeparator();
             QAction* aProperties = menu.addAction(tr("Properties"));
 
@@ -284,64 +286,26 @@ BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightClick(QGraphicsSceneMouse
             }
             else if (action == aRotateCCW)
             {
-                rotateSelectedItems(Angle::deg90(), footprint->getPosition());
+                rotateSelectedItems(Angle::deg90());
             }
             else if (action == aFlipH)
             {
-                // TODO
+                flipSelectedItems(Qt::Horizontal);
             }
             else if (!action->data().toUuid().isNull())
             {
-                bool cmdActive = false;
                 try
                 {
-                    mUndoStack.beginCommand(tr("Change Component"));
-                    cmdActive = true;
-
-                    // add required elements to project library
-                    QUuid compUuid = action->data().toUuid();
-                    const library::Component* comp = mProject.getLibrary().getComponent(compUuid);
-                    if (!comp)
-                    {
-                        // copy component to project's library
-                        FilePath cmpFp = mWorkspace.getLibrary().getLatestComponent(compUuid);
-                        comp = new library::Component(cmpFp);
-                        auto cmd = new CmdProjectLibraryAddElement<library::Component>(mProject.getLibrary(), *comp);
-                        mUndoStack.appendToCommand(cmd);
-                    }
-                    const library::Package* pkg = mProject.getLibrary().getPackage(comp->getPackageUuid());
-                    if (!pkg)
-                    {
-                        // copy package to project's library
-                        FilePath pkgFp = mWorkspace.getLibrary().getLatestPackage(comp->getPackageUuid());
-                        pkg = new library::Package(pkgFp);
-                        auto cmd = new CmdProjectLibraryAddElement<library::Package>(mProject.getLibrary(), *pkg);
-                        mUndoStack.appendToCommand(cmd);
-                    }
-                    const library::Footprint* fpt = mProject.getLibrary().getFootprint(pkg->getFootprintUuid());
-                    if (!fpt)
-                    {
-                        // copy package to project's library
-                        FilePath fptFp = mWorkspace.getLibrary().getLatestFootprint(pkg->getFootprintUuid());
-                        fpt = new library::Footprint(fptFp);
-                        auto cmd = new CmdProjectLibraryAddElement<library::Footprint>(mProject.getLibrary(), *fpt);
-                        mUndoStack.appendToCommand(cmd);
-                    }
-
-                    // replace component
-                    Point pos = compInst.getPosition();
-                    auto cmdRemove = new CmdComponentInstanceRemove(*board, compInst);
-                    mUndoStack.appendToCommand(cmdRemove);
-                    auto cmdAdd = new CmdComponentInstanceAdd(*board, genCompInst, compUuid, pos);
-                    mUndoStack.appendToCommand(cmdAdd);
-
-                    mUndoStack.endCommand();
-                    cmdActive = false;
+                    // get UUID of device and footprint
+                    Uuid deviceUuid(action->data().toString());
+                    Uuid footprintUuid = Uuid(); // TODO
+                    CmdReplaceDevice* cmd = new CmdReplaceDevice(mWorkspace, *board, devInst,
+                                                                 deviceUuid, footprintUuid);
+                    mUndoStack.execCmd(cmd);
                 }
                 catch (Exception& e)
                 {
                     QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-                    if (cmdActive) try {mUndoStack.abortCommand();} catch (...) {}
                 }
             }
             else if (action == aRemove)
@@ -351,7 +315,7 @@ BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightClick(QGraphicsSceneMouse
             else if (action == aProperties)
             {
                 // open the properties editor dialog of the selected item
-                //SymbolInstancePropertiesDialog dialog(mProject, genComp, *symbol, mUndoStack, &mEditor);
+                //SymbolInstancePropertiesDialog dialog(mProject, cmp, *symbol, mUndoStack, &mEditor);
                 //dialog.exec();
             }
             return ForceStayInState;
@@ -365,14 +329,22 @@ BES_Base::ProcRetVal BES_Select::proccessIdleSceneRightClick(QGraphicsSceneMouse
 BES_Base::ProcRetVal BES_Select::proccessIdleSceneDoubleClick(QGraphicsSceneMouseEvent* mouseEvent,
                                                               Board* board) noexcept
 {
-    if (mouseEvent->buttons() == Qt::LeftButton)
-    {
+    if (mouseEvent->buttons() == Qt::LeftButton) {
         // check if there is an element under the mouse
         QList<BI_Base*> items = board->getItemsAtScenePos(Point::fromPx(mouseEvent->scenePos()));
         if (items.isEmpty()) return PassToParentState;
-        // TODO: open the properties editor dialog of the top most item
-        qDebug() << dynamic_cast<BI_Footprint*>(items.first())->getComponentInstance().getGenCompInstance().getUuid();
-        qDebug() << dynamic_cast<BI_Footprint*>(items.first())->getComponentInstance().getLibComponent().getDirectory().toNative();
+        switch (items.first()->getType())
+        {
+            case BI_Base::Type_t::Via: {
+                BI_Via* via = dynamic_cast<BI_Via*>(items.first()); Q_ASSERT(via);
+                BoardViaPropertiesDialog dialog(mProject, *via, mUndoStack, &mEditor);
+                dialog.exec();
+                return ForceStayInState;
+            }
+            default: {
+                break;
+            }
+        }
     }
     return PassToParentState;
 }
@@ -395,73 +367,32 @@ BES_Base::ProcRetVal BES_Select::processSubStateMovingSceneEvent(BEE_Base* event
 
     switch (qevent->type())
     {
-        case QEvent::GraphicsSceneMouseRelease:
-        {
+        case QEvent::GraphicsSceneMouseRelease: {
             QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
-            Board* board = mEditor.getActiveBoard();
-            Q_CHECK_PTR(sceneEvent); if (!sceneEvent) break;
-            Q_CHECK_PTR(board); if (!board) break;
-            Point delta = Point::fromPx(sceneEvent->scenePos() - sceneEvent->buttonDownScenePos(Qt::LeftButton));
-            delta.mapToGrid(mEditor.getGridProperties().getInterval());
-
-            switch (sceneEvent->button())
-            {
-                case Qt::LeftButton: // stop moving items
-                {
-                    Q_CHECK_PTR(mParentCommand);
-
-                    // move selected elements
-                    foreach (CmdComponentInstanceEdit* cmd, mComponentEditCmds)
-                        cmd->setDeltaToStartPos(delta, false);
-
-                    // set position of all selected elements permanent
-                    try
-                    {
-                        if (delta.isOrigin())
-                        {
-                            // items were not moved, do not execute the commands
-                            delete mParentCommand; // this will also delete all objects in mSymbolInstanceMoveCommands
-                        }
-                        else
-                        {
-                            // items were moved, add commands to the project's undo stack
-                            mUndoStack.execCmd(mParentCommand); // can throw an exception
-                        }
-                    }
-                    catch (Exception& e)
-                    {
-                        QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-                    }
-                    mComponentEditCmds.clear();
-                    mParentCommand = nullptr;
-                    mSubState = SubState_Idle;
-                    break;
-                } // case Qt::LeftButton
-
-                default:
-                    break;
-            } // switch (sceneEvent->button())
+            Q_ASSERT(sceneEvent); if (!sceneEvent) break;
+            if (sceneEvent->button() == Qt::LeftButton) {
+                // stop moving items (set position of all selected elements permanent)
+                Q_ASSERT(!mSelectedItemsMoveCommand.isNull());
+                Point pos = Point::fromPx(sceneEvent->scenePos());
+                mSelectedItemsMoveCommand->setCurrentPosition(pos);
+                try {
+                    mUndoStack.execCmd(mSelectedItemsMoveCommand.take()); // can throw
+                } catch (Exception& e) {
+                    QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
+                }
+                mSelectedItemsMoveCommand.reset();
+                mSubState = SubState_Idle;
+            }
             break;
         } // case QEvent::GraphicsSceneMouseRelease
 
-        case QEvent::GraphicsSceneMouseMove:
-        {
+        case QEvent::GraphicsSceneMouseMove: {
+            // move selected elements to cursor position
             QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
-            Board* board = mEditor.getActiveBoard();
-            Q_CHECK_PTR(sceneEvent); if (!sceneEvent) break;
-            Q_CHECK_PTR(board); if (!board) break;
-            Q_CHECK_PTR(mParentCommand);
-
-            // get delta position
-            Point delta = Point::fromPx(sceneEvent->scenePos() - sceneEvent->buttonDownScenePos(Qt::LeftButton));
-            delta.mapToGrid(mEditor.getGridProperties().getInterval());
-            if (delta == mLastMouseMoveDeltaPos) break; // do not move any items
-
-            // move selected elements
-            foreach (CmdComponentInstanceEdit* cmd, mComponentEditCmds)
-                cmd->setDeltaToStartPos(delta, true);
-
-            mLastMouseMoveDeltaPos = delta;
+            Q_ASSERT(sceneEvent); if (!sceneEvent) break;
+            Q_ASSERT(!mSelectedItemsMoveCommand.isNull());
+            Point pos = Point::fromPx(sceneEvent->scenePos());
+            mSelectedItemsMoveCommand->setCurrentPosition(pos);
             break;
         } // case QEvent::GraphicsSceneMouseMove
 
@@ -480,160 +411,48 @@ BES_Base::ProcRetVal BES_Select::processSubStateMovingSceneEvent(BEE_Base* event
     return PassToParentState;
 }
 
-bool BES_Select::startMovingSelectedItems(Board* board) noexcept
+bool BES_Select::startMovingSelectedItems(Board& board, const Point& startPos) noexcept
 {
-    // get all selected items
-    QList<BI_Base*> items = board->getSelectedItems(false /*true, false, true, false, false,
-                                                    false, false, false, false, false*/);
-
-    // abort if no items are selected
-    if (items.isEmpty()) return false;
-
-    // create move commands for all selected items
-    Q_ASSERT(!mParentCommand);
-    Q_ASSERT(mComponentEditCmds.isEmpty());
-    mParentCommand = new UndoCommand(tr("Move Board Items"));
-    foreach (BI_Base* item, items)
-    {
-        switch (item->getType())
-        {
-            case BI_Base::Type_t::Footprint:
-            {
-                BI_Footprint* footprint = dynamic_cast<BI_Footprint*>(item); Q_ASSERT(footprint);
-                ComponentInstance& component = footprint->getComponentInstance();
-                mComponentEditCmds.append(new CmdComponentInstanceEdit(component, mParentCommand));
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-    // switch to substate SubState_Moving
+    Q_ASSERT(mSelectedItemsMoveCommand.isNull());
+    mSelectedItemsMoveCommand.reset(new CmdMoveSelectedBoardItems(board, startPos));
     mSubState = SubState_Moving;
     return true;
 }
 
-bool BES_Select::rotateSelectedItems(const Angle& angle, Point center, bool centerOfElements) noexcept
+bool BES_Select::rotateSelectedItems(const Angle& angle) noexcept
 {
     Board* board = mEditor.getActiveBoard();
     Q_ASSERT(board); if (!board) return false;
 
-    // get all selected items
-    QList<BI_Base*> items = board->getSelectedItems(false /*true, false, true, false, false,
-                                                    false, false, false, false, false*/);
-
-    // abort if no items are selected
-    if (items.isEmpty()) return false;
-
-    // find the center of all elements
-    if (centerOfElements)
-    {
-        center = Point(0, 0);
-        foreach (BI_Base* item, items)
-            center += item->getPosition();
-        center /= items.count();
-        center.mapToGrid(mEditor.getGridProperties().getInterval());
-    }
-
-    bool commandActive = false;
     try
     {
-        mUndoStack.beginCommand(tr("Rotate Board Elements"));
-        commandActive = true;
-
-        // rotate all elements
-        foreach (BI_Base* item, items)
-        {
-            switch (item->getType())
-            {
-                case BI_Base::Type_t::Footprint:
-                {
-                    BI_Footprint* footprint = dynamic_cast<BI_Footprint*>(item); Q_ASSERT(footprint);
-                    ComponentInstance& component = footprint->getComponentInstance();
-                    CmdComponentInstanceEdit* cmd = new CmdComponentInstanceEdit(component, mParentCommand);
-                    cmd->rotate(angle, center, false);
-                    mUndoStack.appendToCommand(cmd);
-                    break;
-                }
-                default:
-                    break;
-            }
-        }
-
-        mUndoStack.endCommand();
-        commandActive = false;
+        CmdRotateSelectedBoardItems* cmd = new CmdRotateSelectedBoardItems(*board, angle);
+        mUndoStack.execCmd(cmd);
+        return true;
     }
     catch (Exception& e)
     {
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        if (commandActive)
-            try {mUndoStack.abortCommand();} catch (...) {}
         return false;
     }
-
-    return true;
 }
 
-bool BES_Select::flipSelectedItems(bool vertical, Point center, bool centerOfElements) noexcept
+bool BES_Select::flipSelectedItems(Qt::Orientation orientation) noexcept
 {
     Board* board = mEditor.getActiveBoard();
     Q_ASSERT(board); if (!board) return false;
 
-    // get all selected items
-    QList<BI_Base*> items = board->getSelectedItems(false /*true, false, true, false, false,
-                                                    false, false, false, false, false*/);
-
-    // abort if no items are selected
-    if (items.isEmpty()) return false;
-
-    // find the center of all elements
-    if (centerOfElements)
-    {
-        center = Point(0, 0);
-        foreach (BI_Base* item, items)
-            center += item->getPosition();
-        center /= items.count();
-        center.mapToGrid(mEditor.getGridProperties().getInterval());
-    }
-
-    bool commandActive = false;
     try
     {
-        mUndoStack.beginCommand(tr("Flip Board Elements"));
-        commandActive = true;
-
-        // flip all elements
-        foreach (BI_Base* item, items)
-        {
-            switch (item->getType())
-            {
-                case BI_Base::Type_t::Footprint:
-                {
-                    BI_Footprint* footprint = dynamic_cast<BI_Footprint*>(item); Q_ASSERT(footprint);
-                    ComponentInstance& component = footprint->getComponentInstance();
-                    CmdComponentInstanceEdit* cmd = new CmdComponentInstanceEdit(component, mParentCommand);
-                    cmd->mirror(center, vertical, false);
-                    mUndoStack.appendToCommand(cmd);
-                    break;
-                }
-                default:
-                    break;
-            }
-        }
-
-        mUndoStack.endCommand();
-        commandActive = false;
+        CmdFlipSelectedBoardItems* cmd = new CmdFlipSelectedBoardItems(*board, orientation);
+        mUndoStack.execCmd(cmd);
+        return true;
     }
     catch (Exception& e)
     {
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        if (commandActive)
-            try {mUndoStack.abortCommand();} catch (...) {}
         return false;
     }
-
-    return true;
 }
 
 bool BES_Select::removeSelectedItems() noexcept
@@ -641,39 +460,15 @@ bool BES_Select::removeSelectedItems() noexcept
     Board* board = mEditor.getActiveBoard();
     Q_ASSERT(board); if (!board) return false;
 
-    // get all selected items
-    QList<BI_Base*> items = board->getSelectedItems(false /*true, false, true, false, false,
-                                                    false, false, false, false, false*/);
-
-    // abort if no items are selected
-    if (items.isEmpty()) return false;
-
-    bool commandActive = false;
     try
     {
-        mUndoStack.beginCommand(tr("Remove Board Elements"));
-        commandActive = true;
-        board->clearSelection();
-
-        // remove all component instances
-        foreach (BI_Base* item, items)
-        {
-            if (item->getType() == BI_Base::Type_t::Footprint)
-            {
-                BI_Footprint* fp = dynamic_cast<BI_Footprint*>(item); Q_ASSERT(fp);
-                auto cmd = new CmdComponentInstanceRemove(*board, fp->getComponentInstance());
-                mUndoStack.appendToCommand(cmd);
-            }
-        }
-
-        mUndoStack.endCommand();
-        commandActive = false;
+        CmdRemoveSelectedBoardItems* cmd = new CmdRemoveSelectedBoardItems(*board);
+        mUndoStack.execCmd(cmd);
         return true;
     }
     catch (Exception& e)
     {
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
-        if (commandActive) try {mUndoStack.abortCommand();} catch (...) {}
         return false;
     }
 }
@@ -683,3 +478,4 @@ bool BES_Select::removeSelectedItems() noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

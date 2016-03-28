@@ -20,28 +20,29 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_addcomponents.h"
 #include "../schematiceditor.h"
 #include "ui_schematiceditor.h"
 #include <librepcbproject/project.h>
-#include <librepcbproject/library/projectlibrary.h>
-#include <librepcblibrary/gencmp/genericcomponent.h>
-#include <librepcbproject/circuit/cmd/cmdgencompinstadd.h>
+#include <librepcblibrary/cmp/component.h>
 #include <librepcbcommon/undostack.h>
-#include <librepcbproject/schematics/cmd/cmdsymbolinstanceadd.h>
-#include <librepcbproject/circuit/gencompinstance.h>
+#include <librepcbproject/circuit/componentinstance.h>
 #include <librepcbproject/schematics/cmd/cmdsymbolinstanceedit.h>
 #include <librepcbproject/schematics/items/si_symbol.h>
 #include <librepcbproject/schematics/schematic.h>
-#include "../../dialogs/addgencompdialog.h"
+#include "../../dialogs/addcomponentdialog.h"
 #include <librepcbcommon/gridproperties.h>
-#include <librepcbproject/library/cmd/cmdprojectlibraryaddelement.h>
 #include <librepcbworkspace/workspace.h>
 #include <librepcblibrary/library.h>
 #include <librepcblibrary/sym/symbol.h>
+#include "../../cmd/cmdaddcomponenttocircuit.h"
+#include "../../cmd/cmdaddsymboltoschematic.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -51,9 +52,10 @@ namespace project {
 SES_AddComponents::SES_AddComponents(SchematicEditor& editor, Ui::SchematicEditor& editorUi,
                                      GraphicsView& editorGraphicsView, UndoStack& undoStack) :
     SES_Base(editor, editorUi, editorGraphicsView, undoStack),
-    mIsUndoCmdActive(false), mAddGenCompDialog(nullptr), mLastAngle(0),
-    mGenComp(nullptr), mGenCompSymbVar(nullptr), mCurrentSymbVarItem(nullptr),
-    mCurrentSymbolToPlace(nullptr), mCurrentSymbolEditCommand(nullptr)
+    mIsUndoCmdActive(false), mAddComponentDialog(nullptr), mLastAngle(0),
+    mCurrentComponent(nullptr),
+    mCurrentSymbVarItemIndex(-1), mCurrentSymbolToPlace(nullptr),
+    mCurrentSymbolEditCommand(nullptr)
 {
 }
 
@@ -71,7 +73,7 @@ SES_Base::ProcRetVal SES_AddComponents::process(SEE_Base* event) noexcept
     {
         case SEE_Base::AbortCommand:
         {
-            if (mAddGenCompDialog)
+            if (mAddComponentDialog)
             {
                 try
                 {
@@ -99,7 +101,7 @@ SES_Base::ProcRetVal SES_AddComponents::process(SEE_Base* event) noexcept
                 Q_ASSERT(e);
                 if (!abortCommand(true)) return PassToParentState;
                 mLastAngle.setAngleMicroDeg(0); // reset the angle
-                startAddingComponent(e->getGenCompUuid(), e->getSymbVarUuid());
+                startAddingComponent(e->getComponentUuid(), e->getSymbVarUuid());
                 return ForceStayInState;
             }
             catch (UserCanceled& exc)
@@ -137,19 +139,19 @@ bool SES_AddComponents::entry(SEE_Base* event) noexcept
     // start adding the specified component
     try
     {
-        startAddingComponent(e->getGenCompUuid(), e->getSymbVarUuid());
+        startAddingComponent(e->getComponentUuid(), e->getSymbVarUuid());
     }
     catch (UserCanceled& exc)
     {
         if (mIsUndoCmdActive) abortCommand(false);
-        delete mAddGenCompDialog; mAddGenCompDialog = nullptr;
+        delete mAddComponentDialog; mAddComponentDialog = nullptr;
         return false;
     }
     catch (Exception& exc)
     {
         QMessageBox::critical(&mEditor, tr("Error"), QString(tr("Could not add component:\n\n%1")).arg(exc.getUserMsg()));
         if (mIsUndoCmdActive) abortCommand(false);
-        delete mAddGenCompDialog; mAddGenCompDialog = nullptr;
+        delete mAddComponentDialog; mAddComponentDialog = nullptr;
         return false;
     }
 
@@ -164,7 +166,7 @@ bool SES_AddComponents::exit(SEE_Base* event) noexcept
     Q_UNUSED(event);
     if (!abortCommand(true)) return false;
     Q_ASSERT(mIsUndoCmdActive == false);
-    delete mAddGenCompDialog;   mAddGenCompDialog = nullptr;
+    delete mAddComponentDialog;   mAddComponentDialog = nullptr;
     mEditorUi.actionToolAddComponent->setCheckable(false);
     mEditorUi.actionToolAddComponent->setChecked(false);
     return true;
@@ -209,24 +211,26 @@ SES_Base::ProcRetVal SES_AddComponents::processSceneEvent(SEE_Base* event) noexc
                     {
                         // place the current symbol finally
                         mCurrentSymbolEditCommand->setPosition(pos, false);
-                        mUndoStack.appendToCommand(mCurrentSymbolEditCommand);
+                        mUndoStack.appendToCmdGroup(mCurrentSymbolEditCommand);
                         mCurrentSymbolEditCommand = nullptr;
-                        mUndoStack.endCommand();
+                        mUndoStack.commitCmdGroup();
                         mIsUndoCmdActive = false;
-                        mUndoStack.beginCommand(tr("Add Symbol to Schematic"));
+                        mUndoStack.beginCmdGroup(tr("Add Symbol to Schematic"));
                         mIsUndoCmdActive = true;
 
                         // check if there is a next symbol to add
-                        mCurrentSymbVarItem = mGenCompSymbVar->getNextItem(mCurrentSymbVarItem);
+                        mCurrentSymbVarItemIndex++;
+                        auto* currentSymbVarItem = mCurrentComponent->getSymbolVariant().getItem(mCurrentSymbVarItemIndex);
 
-                        if (mCurrentSymbVarItem)
+                        if (currentSymbVarItem)
                         {
                             // create the next symbol instance and add it to the schematic
-                            CmdSymbolInstanceAdd* cmd = new CmdSymbolInstanceAdd(*schematic,
-                                mCurrentSymbolToPlace->getGenCompInstance(),
-                                mCurrentSymbVarItem->getUuid(), pos);
-                            mUndoStack.appendToCommand(cmd);
-                            mCurrentSymbolToPlace = cmd->getSymbol();
+                            CmdAddSymbolToSchematic* cmd = new CmdAddSymbolToSchematic(
+                                mWorkspace, *schematic,
+                                mCurrentSymbolToPlace->getComponentInstance(),
+                                currentSymbVarItem->getUuid(), pos);
+                            mUndoStack.appendToCmdGroup(cmd);
+                            mCurrentSymbolToPlace = cmd->getSymbolInstance();
                             Q_ASSERT(mCurrentSymbolToPlace);
 
                             // add command to move the current symbol
@@ -238,12 +242,12 @@ SES_Base::ProcRetVal SES_AddComponents::processSceneEvent(SEE_Base* event) noexc
                         else
                         {
                             // all symbols placed, start adding the next component
-                            QUuid genCompUuid = mGenComp->getUuid();
-                            QUuid symbVarUuid = mGenCompSymbVar->getUuid();
-                            mUndoStack.endCommand();
+                            Uuid componentUuid = mCurrentComponent->getLibComponent().getUuid();
+                            Uuid symbVarUuid = mCurrentComponent->getSymbolVariant().getUuid();
+                            mUndoStack.commitCmdGroup();
                             mIsUndoCmdActive = false;
                             abortCommand(false); // reset attributes
-                            startAddingComponent(genCompUuid, symbVarUuid);
+                            startAddingComponent(componentUuid, symbVarUuid);
                             return ForceStayInState;
                         }
                     }
@@ -257,10 +261,28 @@ SES_Base::ProcRetVal SES_AddComponents::processSceneEvent(SEE_Base* event) noexc
                 }
 
                 case Qt::RightButton:
-                    // rotate symbol
-                    mLastAngle += Angle::deg90();
-                    mCurrentSymbolEditCommand->setRotation(mLastAngle, true);
                     return ForceStayInState;
+
+                default:
+                    break;
+            }
+            break;
+        }
+
+        case QEvent::GraphicsSceneMouseRelease:
+        {
+            QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
+            Q_ASSERT(sceneEvent);
+            switch (sceneEvent->button())
+            {
+                case Qt::RightButton:
+                    if (sceneEvent->screenPos() == sceneEvent->buttonDownScreenPos(Qt::RightButton)) {
+                        // rotate symbol
+                        mLastAngle += Angle::deg90();
+                        mCurrentSymbolEditCommand->setRotation(mLastAngle, true);
+                        return ForceStayInState;
+                    }
+                    break;
 
                 default:
                     break;
@@ -283,7 +305,7 @@ SES_Base::ProcRetVal SES_AddComponents::processSceneEvent(SEE_Base* event) noexc
     return PassToParentState;
 }
 
-void SES_AddComponents::startAddingComponent(const QUuid& genComp, const QUuid& symbVar) throw (Exception)
+void SES_AddComponents::startAddingComponent(const Uuid& cmp, const Uuid& symbVar) throw (Exception)
 {
     Schematic* schematic = mEditor.getActiveSchematic();
     Q_ASSERT(schematic); if (!schematic) throw LogicError(__FILE__, __LINE__);
@@ -292,116 +314,46 @@ void SES_AddComponents::startAddingComponent(const QUuid& genComp, const QUuid& 
     {
         // start a new command
         Q_ASSERT(!mIsUndoCmdActive);
-        mUndoStack.beginCommand(tr("Add Generic Component to Schematic"));
+        mUndoStack.beginCmdGroup(tr("Add Component to Schematic"));
         mIsUndoCmdActive = true;
 
-        if (genComp.isNull() || symbVar.isNull())
+        if (cmp.isNull() || symbVar.isNull())
         {
-            // show generic component chooser dialog
-            if (!mAddGenCompDialog)
-                mAddGenCompDialog = new AddGenCompDialog(mWorkspace, mProject, &mEditor);
-            if (mAddGenCompDialog->exec() != QDialog::Accepted)
+            // show component chooser dialog
+            if (!mAddComponentDialog)
+                mAddComponentDialog = new AddComponentDialog(mWorkspace, mProject, &mEditor);
+            if (mAddComponentDialog->exec() != QDialog::Accepted)
                 throw UserCanceled(__FILE__, __LINE__); // abort
 
-            // open the XML file
-            library::GenericComponent* genComp = new library::GenericComponent(mAddGenCompDialog->getSelectedGenCompFilePath());
-            QUuid genCompUuid = genComp->getUuid();
-            Version genCompVersion = genComp->getVersion();
-            delete genComp;
-
-            // search the generic component in the library
-            mGenComp = mProject.getLibrary().getGenComp(genCompUuid);
-            if (mGenComp)
-            {
-                if (mGenComp->getVersion() != genCompVersion)
-                {
-                    QMessageBox::information(&mEditor, tr("Different Version"),
-                        QString(tr("The same generic component exists already in this "
-                        "project's library but the version is different. The version %1 from "
-                        "the project's library will be used instead of the version %2."))
-                        .arg(mGenComp->getVersion().toStr(), genCompVersion.toStr()));
-                }
-            }
-            else
-            {
-                // copy the generic component to the project's library
-                FilePath genCmpFp = mWorkspace.getLibrary().getLatestGenericComponent(genCompUuid);
-                if (!genCmpFp.isValid())
-                {
-                    throw RuntimeError(__FILE__, __LINE__, QString(),
-                        QString(tr("Generic Component not found in library: %1"))
-                        .arg(genCompUuid.toString()));
-                }
-                mGenComp = new library::GenericComponent(genCmpFp);
-                auto cmd = new CmdProjectLibraryAddElement<library::GenericComponent>(
-                    mProject.getLibrary(), *mGenComp);
-                mUndoStack.appendToCommand(cmd);
-            }
-            mGenCompSymbVar = mGenComp->getSymbolVariantByUuid(mAddGenCompDialog->getSelectedSymbVarUuid());
+            // add selected component to circuit
+            auto cmd = new CmdAddComponentToCircuit(mWorkspace, mProject,
+                mAddComponentDialog->getSelectedComponentUuid(),
+                mAddComponentDialog->getSelectedSymbVarUuid());
+            mUndoStack.appendToCmdGroup(cmd);
+            mCurrentComponent = cmd->getComponentInstance();
         }
         else
         {
-            // search the generic component in the library
-            mGenComp = mProject.getLibrary().getGenComp(genComp);
-            if (mGenComp) mGenCompSymbVar = mGenComp->getSymbolVariantByUuid(symbVar);
+            // add selected component to circuit
+            auto* cmd = new CmdAddComponentToCircuit(mWorkspace, mProject, cmp, symbVar);
+            mUndoStack.appendToCmdGroup(cmd);
+            mCurrentComponent = cmd->getComponentInstance();
         }
-
-        // check pointers
-        if (!mGenComp)
-        {
-            throw LogicError(__FILE__, __LINE__, QString(),
-                QString(tr("The generic component \"%1\" was not found in the "
-                "project's library.")).arg(genComp.toString()));
-        }
-        if (!mGenCompSymbVar)
-        {
-            throw LogicError(__FILE__, __LINE__, QString(), QString(
-                tr("Invalid symbol variant: \"%1\"")).arg(symbVar.toString()));
-        }
-
-        // copy all required symbols to the project's library
-        foreach (const library::GenCompSymbVarItem* item, mGenCompSymbVar->getItems())
-        {
-            QUuid uuid = item->getSymbolUuid();
-            if (!mProject.getLibrary().getSymbol(uuid))
-            {
-                FilePath symbolFp = mWorkspace.getLibrary().getLatestSymbol(uuid);
-                if (!symbolFp.isValid())
-                {
-                    throw RuntimeError(__FILE__, __LINE__, QString(),
-                        QString(tr("Symbol not found in library: %1")).arg(uuid.toString()));
-                }
-                library::Symbol* symbol = new library::Symbol(symbolFp);
-                auto cmd = new CmdProjectLibraryAddElement<library::Symbol>(
-                    mProject.getLibrary(), *symbol);
-                mUndoStack.appendToCommand(cmd);
-            }
-        }
-
-        // get the scene position where the new symbol should be placed
-        QPoint cursorPos = mEditorGraphicsView.mapFromGlobal(QCursor::pos());
-        QPoint boundedCursorPos = QPoint(qBound(0, cursorPos.x(), mEditorGraphicsView.width()),
-                                         qBound(0, cursorPos.y(), mEditorGraphicsView.height()));
-        Point pos = Point::fromPx(mEditorGraphicsView.mapToScene(boundedCursorPos),
-                                  mEditor.getGridProperties().getInterval());
-
-        // create a new generic component instance and add it to the circuit
-        CmdGenCompInstAdd* cmd = new CmdGenCompInstAdd(mCircuit, *mGenComp,
-                                                               *mGenCompSymbVar);
-        mUndoStack.appendToCommand(cmd);
 
         // create the first symbol instance and add it to the schematic
-        mCurrentSymbVarItem = mGenCompSymbVar->getItems().first();
-        if (!mCurrentSymbVarItem)
+        mCurrentSymbVarItemIndex = 0;
+        auto* currentSymbVarItem = mCurrentComponent->getSymbolVariant().getItem(mCurrentSymbVarItemIndex);
+        if (!currentSymbVarItem)
         {
-            throw RuntimeError(__FILE__, __LINE__, symbVar.toString(),
-                QString(tr("The generic component with the UUID \"%1\" does not have "
-                           "any symbol.")).arg(genComp.toString()));
+            throw RuntimeError(__FILE__, __LINE__, symbVar.toStr(),
+                QString(tr("The component with the UUID \"%1\" does not have any symbol."))
+                .arg(cmp.toStr()));
         }
-        CmdSymbolInstanceAdd* cmd2 = new CmdSymbolInstanceAdd(*schematic,
-            *(cmd->getGenCompInstance()), mCurrentSymbVarItem->getUuid(), pos);
-        mUndoStack.appendToCommand(cmd2);
-        mCurrentSymbolToPlace = cmd2->getSymbol();
+        Point pos = mEditorGraphicsView.mapGlobalPosToScenePos(QCursor::pos(), true, true);
+        CmdAddSymbolToSchematic* cmd2 = new CmdAddSymbolToSchematic(mWorkspace, *schematic,
+            *mCurrentComponent, currentSymbVarItem->getUuid(), pos);
+        mUndoStack.appendToCmdGroup(cmd2);
+        mCurrentSymbolToPlace = cmd2->getSymbolInstance();
         Q_ASSERT(mCurrentSymbolToPlace);
 
         // add command to move the current symbol
@@ -411,7 +363,7 @@ void SES_AddComponents::startAddingComponent(const QUuid& genComp, const QUuid& 
     }
     catch (Exception& e)
     {
-        if (mIsUndoCmdActive) {try {mUndoStack.abortCommand(); mIsUndoCmdActive = false;} catch (...) {}}
+        if (mIsUndoCmdActive) {try {mUndoStack.abortCmdGroup(); mIsUndoCmdActive = false;} catch (...) {}}
         throw;
     }
 }
@@ -427,14 +379,13 @@ bool SES_AddComponents::abortCommand(bool showErrMsgBox) noexcept
         // abort the undo command
         if (mIsUndoCmdActive)
         {
-            mUndoStack.abortCommand();
+            mUndoStack.abortCmdGroup();
             mIsUndoCmdActive = false;
         }
 
         // reset attributes, go back to idle state
-        mGenComp = nullptr;
-        mGenCompSymbVar = nullptr;
-        mCurrentSymbVarItem = nullptr;
+        mCurrentComponent = nullptr;
+        mCurrentSymbVarItemIndex = -1;
         mCurrentSymbolToPlace = nullptr;
         return true;
     }
@@ -450,3 +401,4 @@ bool SES_AddComponents::abortCommand(bool showErrMsgBox) noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

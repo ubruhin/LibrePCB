@@ -17,22 +17,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBRARYEDITOR_LIBRARYEDITOR_H
-#define LIBRARYEDITOR_LIBRARYEDITOR_H
+#ifndef LIBREPCB_LIBRARY_LIBRARYEDITOR_H
+#define LIBREPCB_LIBRARY_LIBRARYEDITOR_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
+namespace workspace {
 class Workspace;
+}
+
+namespace library {
 
 namespace Ui {
 class LibraryEditor;
@@ -41,8 +45,6 @@ class LibraryEditor;
 /*****************************************************************************************
  *  Class LibraryEditor
  ****************************************************************************************/
-
-namespace library_editor {
 
 /**
  * @brief The LibraryEditor class
@@ -56,7 +58,7 @@ class LibraryEditor final : public QMainWindow
     public:
 
         // Constructors / Destructor
-        explicit LibraryEditor(Workspace& workspace) throw (Exception);
+        explicit LibraryEditor(workspace::Workspace& workspace) throw (Exception);
         ~LibraryEditor() noexcept;
 
 
@@ -67,10 +69,15 @@ class LibraryEditor final : public QMainWindow
         LibraryEditor& operator=(const LibraryEditor& rhs);
 
         // Attributes
-        Workspace& mWorkspace;
+        workspace::Workspace& mWorkspace;
         Ui::LibraryEditor* mUi;
 };
 
-} // namespace library_editor
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // LIBRARYEDITOR_LIBRARYEDITOR_H
+} // namespace library
+} // namespace librepcb
+
+#endif // LIBREPCB_LIBRARY_LIBRARYEDITOR_H

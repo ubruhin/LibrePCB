@@ -17,21 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SES_FSM_H
-#define PROJECT_SES_FSM_H
+#ifndef LIBREPCB_PROJECT_SES_FSM_H
+#define LIBREPCB_PROJECT_SES_FSM_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_base.h"
 
 /*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace project {
+
+/*****************************************************************************************
  *  Class SES_FSM
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The SES_FSM (Schematic Editor Finite State Machine) class
@@ -56,16 +59,16 @@ class SES_FSM final : public SES_Base
         /// FSM States
         enum State {
             State_NoState,      ///< no state active
-            State_Select,       ///< @see project#SES_Select
-            State_Move,         ///< @see project#SES_Move
-            State_DrawText,     ///< @see project#SES_DrawText
-            State_DrawRect,     ///< @see project#SES_DrawRect
-            State_DrawPolygon,  ///< @see project#SES_DrawPolygon
-            State_DrawCircle,   ///< @see project#SES_DrawCircle
-            State_DrawEllipse,  ///< @see project#SES_DrawEllipse
-            State_DrawWire,     ///< @see project#SES_DrawWire
-            State_AddNetLabel,  ///< @see project#SES_AddNetLabel
-            State_AddComponent  ///< @see project#SES_AddComponents
+            State_Select,       ///< @see #project#SES_Select
+            State_Move,         ///< @see #project#SES_Move
+            State_DrawText,     ///< @see #project#SES_DrawText
+            State_DrawRect,     ///< @see #project#SES_DrawRect
+            State_DrawPolygon,  ///< @see #project#SES_DrawPolygon
+            State_DrawCircle,   ///< @see #project#SES_DrawCircle
+            State_DrawEllipse,  ///< @see #project#SES_DrawEllipse
+            State_DrawWire,     ///< @see #project#SES_DrawWire
+            State_AddNetLabel,  ///< @see #project#SES_AddNetLabel
+            State_AddComponent  ///< @see #project#SES_AddComponents
         };
 
 
@@ -80,6 +83,11 @@ class SES_FSM final : public SES_Base
         QHash<State, SES_Base*> mSubStates;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SES_FSM_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SES_FSM_H

@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICADD_H
-#define PROJECT_CMDSCHEMATICADD_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICADD_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
 class Schematic;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicAdd class
@@ -51,18 +47,28 @@ class CmdSchematicAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicAdd(Project& project, const QString& name,
-                                UndoCommand* parent = 0) throw (Exception);
+        CmdSchematicAdd(Project& project, const QString& name) noexcept;
         ~CmdSchematicAdd() noexcept;
 
         // Getters
         Schematic* getSchematic() const noexcept {return mSchematic;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         Project& mProject;
         QString mName;
@@ -70,6 +76,11 @@ class CmdSchematicAdd final : public UndoCommand
         int mPageIndex;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICADD_H

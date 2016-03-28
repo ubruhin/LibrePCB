@@ -17,30 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDPROJECTLIBRARYADDELEMENT_H
-#define PROJECT_CMDPROJECTLIBRARYADDELEMENT_H
+#ifndef LIBREPCB_PROJECT_CMDPROJECTLIBRARYADDELEMENT_H
+#define LIBREPCB_PROJECT_CMDPROJECTLIBRARYADDELEMENT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
 #include <librepcbcommon/fileio/filepath.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class ProjectLibrary;
-}
 
 /*****************************************************************************************
  *  Class CmdProjectLibraryAddElement
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdProjectLibraryAddElement class
@@ -51,28 +48,39 @@ class CmdProjectLibraryAddElement final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdProjectLibraryAddElement(ProjectLibrary& library,
-                                             const ElementType& element,
-                                             UndoCommand* parent = 0) throw (Exception);
+        CmdProjectLibraryAddElement(ProjectLibrary& library, ElementType& element) noexcept;
         ~CmdProjectLibraryAddElement() noexcept;
 
-        // Getters
-        const ElementType& getElement() const noexcept {return mElement;}
-
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         void addElement();
         void removeElement();
 
 
         ProjectLibrary& mLibrary;
-        const ElementType& mElement;
+        ElementType& mElement;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDPROJECTLIBRARYADDELEMENT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDPROJECTLIBRARYADDELEMENT_H

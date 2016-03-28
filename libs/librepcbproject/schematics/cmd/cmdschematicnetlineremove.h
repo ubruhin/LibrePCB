@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICNETLINEREMOVE_H
-#define PROJECT_CMDSCHEMATICNETLINEREMOVE_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Schematic;
 class SI_NetLine;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicNetLineRemove
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicNetLineRemove class
@@ -51,20 +47,35 @@ class CmdSchematicNetLineRemove final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetLineRemove(Schematic& schematic, SI_NetLine& netline,
-                                            UndoCommand* parent = 0) throw (Exception);
+        explicit CmdSchematicNetLineRemove(SI_NetLine& netline) noexcept;
         ~CmdSchematicNetLineRemove() noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         Schematic& mSchematic;
         SI_NetLine& mNetLine;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICNETLINEREMOVE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H

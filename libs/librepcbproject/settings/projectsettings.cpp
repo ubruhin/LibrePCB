@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "projectsettings.h"
 #include <librepcbcommon/fileio/smartxmlfile.h>
@@ -28,6 +27,10 @@
 #include <librepcbcommon/fileio/xmldomelement.h>
 #include "../project.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -63,14 +66,14 @@ ProjectSettings::ProjectSettings(Project& project, bool restore, bool readOnly, 
             for (XmlDomElement* node = root.getFirstChild("locale_order/locale", true, false);
                  node; node = node->getNextSibling("locale"))
             {
-                mLocaleOrder.append(node->getText(true));
+                mLocaleOrder.append(node->getText<QString>(true));
             }
 
             // norm order
             for (XmlDomElement* node = root.getFirstChild("norm_order/norm", true, false);
                  node; node = node->getNextSibling("norm"))
             {
-                mNormOrder.append(node->getText(true));
+                mNormOrder.append(node->getText<QString>(true));
             }
         }
 
@@ -156,3 +159,4 @@ XmlDomElement* ProjectSettings::serializeToXmlDomElement() const throw (Exceptio
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

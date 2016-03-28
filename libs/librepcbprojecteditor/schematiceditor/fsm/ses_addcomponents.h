@@ -17,39 +17,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SES_ADDCOMPONENTS_H
-#define PROJECT_SES_ADDCOMPONENTS_H
+#ifndef LIBREPCB_PROJECT_SES_ADDCOMPONENTS_H
+#define LIBREPCB_PROJECT_SES_ADDCOMPONENTS_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_base.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 namespace library {
-class GenericComponent;
-class GenCompSymbVar;
-class GenCompSymbVarItem;
+class Component;
+class ComponentSymbolVariant;
+class ComponentSymbolVariantItem;
 }
 
 namespace project {
-class GenCompInstance;
+
+class ComponentInstance;
 class SI_Symbol;
 class CmdSymbolInstanceEdit;
-class AddGenCompDialog;
-}
+class AddComponentDialog;
 
 /*****************************************************************************************
  *  Class SES_AddComponents
  ****************************************************************************************/
-
-namespace project {
-
 
 /**
  * @brief The SES_AddComponents class
@@ -75,23 +72,27 @@ class SES_AddComponents final : public SES_Base
 
         // Private Methods
         ProcRetVal processSceneEvent(SEE_Base* event) noexcept;
-        void startAddingComponent(const QUuid& genComp = QUuid(), const QUuid& symbVar = QUuid()) throw (Exception);
+        void startAddingComponent(const Uuid& cmp = Uuid(), const Uuid& symbVar = Uuid()) throw (Exception);
         bool abortCommand(bool showErrMsgBox) noexcept;
 
 
         // Attributes
         bool mIsUndoCmdActive;
-        AddGenCompDialog* mAddGenCompDialog;
+        AddComponentDialog* mAddComponentDialog;
         Angle mLastAngle;
 
-        // information about the current symbol to place
-        const library::GenericComponent* mGenComp;
-        const library::GenCompSymbVar* mGenCompSymbVar;
-        const library::GenCompSymbVarItem* mCurrentSymbVarItem;
+        // information about the current component/symbol to place
+        ComponentInstance* mCurrentComponent;
+        int mCurrentSymbVarItemIndex;
         SI_Symbol* mCurrentSymbolToPlace;
         CmdSymbolInstanceEdit* mCurrentSymbolEditCommand;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SES_ADDCOMPONENTS_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SES_ADDCOMPONENTS_H

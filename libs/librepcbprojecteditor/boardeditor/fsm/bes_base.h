@@ -17,13 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BES_BASE_H
-#define PROJECT_BES_BASE_H
+#ifndef LIBREPCB_PROJECT_BES_BASE_H
+#define LIBREPCB_PROJECT_BES_BASE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "boardeditorevent.h"
 #include "../boardeditor.h"
@@ -32,22 +31,24 @@
 #include <librepcbcommon/graphics/graphicsview.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class UndoStack;
+
+namespace workspace {
 class Workspace;
+}
 
 namespace project {
+
 class Project;
 class Circuit;
-}
 
 /*****************************************************************************************
  *  Class BES_Base
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BES_Base (BoardEditorState Base) class
@@ -78,7 +79,7 @@ class BES_Base : public QObject
     protected:
 
         // General Attributes which are needed by some state objects
-        Workspace& mWorkspace;
+        workspace::Workspace& mWorkspace;
         Project& mProject;
         Circuit& mCircuit;
         BoardEditor& mEditor;
@@ -87,6 +88,11 @@ class BES_Base : public QObject
         UndoStack& mUndoStack;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BES_BASE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BES_BASE_H

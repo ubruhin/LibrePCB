@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDNETSIGNALREMOVE_H
-#define PROJECT_CMDNETSIGNALREMOVE_H
+#ifndef LIBREPCB_PROJECT_CMDNETSIGNALREMOVE_H
+#define LIBREPCB_PROJECT_CMDNETSIGNALREMOVE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Circuit;
 class NetSignal;
-}
 
 /*****************************************************************************************
  *  Class CmdNetSignalRemove
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdNetSignalRemove class
@@ -51,20 +47,35 @@ class CmdNetSignalRemove final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdNetSignalRemove(Circuit& circuit, NetSignal& netsignal,
-                                   UndoCommand* parent = 0) throw (Exception);
+        CmdNetSignalRemove(Circuit& circuit, NetSignal& netsignal) noexcept;
         ~CmdNetSignalRemove() noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         Circuit& mCircuit;
         NetSignal& mNetSignal;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDNETSIGNALREMOVE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDNETSIGNALREMOVE_H

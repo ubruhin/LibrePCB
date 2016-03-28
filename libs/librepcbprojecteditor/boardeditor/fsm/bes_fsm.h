@@ -17,21 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BES_FSM_H
-#define PROJECT_BES_FSM_H
+#ifndef LIBREPCB_PROJECT_BES_FSM_H
+#define LIBREPCB_PROJECT_BES_FSM_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bes_base.h"
 
 /*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace project {
+
+/*****************************************************************************************
  *  Class BES_FSM
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BES_FSM (Board Editor Finite State Machine) class
@@ -56,16 +59,10 @@ class BES_FSM final : public BES_Base
         /// FSM States
         enum State {
             State_NoState,      ///< no state active
-            State_Select,       ///< @see project#BES_Select
-            //State_Move,         ///< @see project#BES_Move
-            //State_DrawText,     ///< @see project#BES_DrawText
-            //State_DrawRect,     ///< @see project#BES_DrawRect
-            //State_DrawPolygon,  ///< @see project#BES_DrawPolygon
-            //State_DrawCircle,   ///< @see project#BES_DrawCircle
-            //State_DrawEllipse,  ///< @see project#BES_DrawEllipse
-            //State_DrawWire,     ///< @see project#BES_DrawWire
-            //State_AddNetLabel,  ///< @see project#BES_AddNetLabel
-            //State_AddComponent  ///< @see project#BES_AddComponents
+            State_Select,       ///< @see #project#BES_Select
+            State_DrawTrace,    ///< @see #project#BES_DrawTrace
+            State_AddVia,       ///< @see librepcb#project#BES_AddVia
+            State_AddDevice,    ///< @see librepcb#project#BES_AddDevice
         };
 
 
@@ -80,6 +77,11 @@ class BES_FSM final : public BES_Base
         QHash<State, BES_Base*> mSubStates;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BES_FSM_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BES_FSM_H

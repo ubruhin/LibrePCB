@@ -17,30 +17,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDPROJECTSETMETADATA_H
-#define PROJECT_CMDPROJECTSETMETADATA_H
+#ifndef LIBREPCB_PROJECT_CMDPROJECTSETMETADATA_H
+#define LIBREPCB_PROJECT_CMDPROJECTSETMETADATA_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
-}
 
 /*****************************************************************************************
  *  Class CmdProjectSetMetadata
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdProjectSetMetadata class
@@ -50,7 +46,7 @@ class CmdProjectSetMetadata final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdProjectSetMetadata(Project& project, UndoCommand* parent = 0) throw (Exception);
+        explicit CmdProjectSetMetadata(Project& project) noexcept;
         ~CmdProjectSetMetadata() noexcept;
 
         // Setters
@@ -59,15 +55,25 @@ class CmdProjectSetMetadata final : public UndoCommand
         void setAuthor(const QString& newAuthor) noexcept;
         void setCreated(const QDateTime& newCreated) noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
+
         // General
         Project& mProject;
-        bool mRedoOrUndoCalled;
 
         // Misc
         QString mOldName;
@@ -80,6 +86,11 @@ class CmdProjectSetMetadata final : public UndoCommand
         QDateTime mNewCreated;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDPROJECTSETMETADATA_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDPROJECTSETMETADATA_H

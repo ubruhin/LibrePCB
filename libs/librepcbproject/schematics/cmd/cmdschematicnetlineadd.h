@@ -17,32 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICNETLINEADD_H
-#define PROJECT_CMDSCHEMATICNETLINEADD_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETLINEADD_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETLINEADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Schematic;
 class SI_NetPoint;
 class SI_NetLine;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicNetLineAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicNetLineAdd class
@@ -52,18 +48,30 @@ class CmdSchematicNetLineAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetLineAdd(Schematic& schematic, SI_NetPoint& startPoint,
-                                        SI_NetPoint& endPoint, UndoCommand* parent = 0) throw (Exception);
+        explicit CmdSchematicNetLineAdd(SI_NetLine& netline) noexcept;
+        CmdSchematicNetLineAdd(Schematic& schematic, SI_NetPoint& startPoint,
+                               SI_NetPoint& endPoint) noexcept;
         ~CmdSchematicNetLineAdd() noexcept;
 
         // Getters
         SI_NetLine* getNetLine() const noexcept {return mNetLine;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         Schematic& mSchematic;
         SI_NetPoint& mStartPoint;
@@ -71,6 +79,11 @@ class CmdSchematicNetLineAdd final : public UndoCommand
         SI_NetLine* mNetLine;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICNETLINEADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETLINEADD_H

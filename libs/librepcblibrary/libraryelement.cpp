@@ -20,11 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "libraryelement.h"
 #include <librepcbcommon/fileio/xmldomelement.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace library {
 
 /*****************************************************************************************
@@ -32,7 +35,7 @@ namespace library {
  ****************************************************************************************/
 
 LibraryElement::LibraryElement(const QString& xmlFileNamePrefix,
-                               const QString& xmlRootNodeName, const QUuid& uuid,
+                               const QString& xmlRootNodeName, const Uuid& uuid,
                                const Version& version, const QString& author,
                                const QString& name_en_US, const QString& description_en_US,
                                const QString& keywords_en_US) throw (Exception) :
@@ -42,8 +45,8 @@ LibraryElement::LibraryElement(const QString& xmlFileNamePrefix,
 
 LibraryElement::LibraryElement(const FilePath& elementDirectory,
                                const QString& xmlFileNamePrefix,
-                               const QString& xmlRootNodeName) throw (Exception) :
-    LibraryBaseElement(elementDirectory, xmlFileNamePrefix, xmlRootNodeName)
+                               const QString& xmlRootNodeName, bool readOnly) throw (Exception) :
+    LibraryBaseElement(elementDirectory, xmlFileNamePrefix, xmlRootNodeName, readOnly)
 {
 }
 
@@ -60,19 +63,18 @@ void LibraryElement::parseDomTree(const XmlDomElement& root) throw (Exception)
     LibraryBaseElement::parseDomTree(root);
 
     // read category UUIDs
-    for (XmlDomElement* node = root.getFirstChild("categories/category", true, false);
+    for (XmlDomElement* node = root.getFirstChild("meta/category", true, false);
          node; node = node->getNextSibling("category"))
     {
-        mCategories.append(node->getText<QUuid>());
+        mCategories.append(node->getText<Uuid>(true));
     }
 }
 
 XmlDomElement* LibraryElement::serializeToXmlDomElement() const throw (Exception)
 {
     QScopedPointer<XmlDomElement> root(LibraryBaseElement::serializeToXmlDomElement());
-    XmlDomElement* categories = root->appendChild("categories");
-    foreach (const QUuid& uuid, mCategories)
-        categories->appendTextChild("category", uuid.toString());
+    foreach (const Uuid& uuid, mCategories)
+        root->getFirstChild("meta", true)->appendTextChild("category", uuid);
     return root.take();
 }
 
@@ -87,3 +89,4 @@ bool LibraryElement::checkAttributesValidity() const noexcept
  ****************************************************************************************/
 
 } // namespace library
+} // namespace librepcb

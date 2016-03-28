@@ -17,13 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SI_SYMBOL_H
-#define PROJECT_SI_SYMBOL_H
+#ifndef LIBREPCB_PROJECT_SI_SYMBOL_H
+#define LIBREPCB_PROJECT_SI_SYMBOL_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "si_base.h"
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
@@ -31,25 +30,24 @@
 #include "../graphicsitems/sgi_symbol.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
-namespace project {
-class Schematic;
-class GenCompInstance;
-class SI_SymbolPin;
-}
+namespace librepcb {
 
 namespace library {
 class Symbol;
-class GenCompSymbVarItem;
+class ComponentSymbolVariantItem;
 }
+
+namespace project {
+
+class Schematic;
+class ComponentInstance;
+class SI_SymbolPin;
 
 /*****************************************************************************************
  *  Class SI_Symbol
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The SI_Symbol class
@@ -65,31 +63,31 @@ class SI_Symbol final : public SI_Base, public IF_XmlSerializableObject,
     public:
 
         // Constructors / Destructor
+        SI_Symbol() = delete;
+        SI_Symbol(const SI_Symbol& other) = delete;
         explicit SI_Symbol(Schematic& schematic, const XmlDomElement& domElement) throw (Exception);
-        explicit SI_Symbol(Schematic& schematic, GenCompInstance& genCompInstance,
-                           const QUuid& symbolItem, const Point& position = Point(),
+        explicit SI_Symbol(Schematic& schematic, ComponentInstance& cmpInstance,
+                           const Uuid& symbolItem, const Point& position = Point(),
                            const Angle& rotation = Angle()) throw (Exception);
         ~SI_Symbol() noexcept;
 
         // Getters
-        Project& getProject() const noexcept;
-        Schematic& getSchematic() const noexcept {return mSchematic;}
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const Angle& getRotation() const noexcept {return mRotation;}
         QString getName() const noexcept;
-        SI_SymbolPin* getPin(const QUuid& pinUuid) const noexcept {return mPins.value(pinUuid);}
-        const QHash<QUuid, SI_SymbolPin*>& getPins() const noexcept {return mPins;}
-        GenCompInstance& getGenCompInstance() const noexcept {return *mGenCompInstance;}
+        SI_SymbolPin* getPin(const Uuid& pinUuid) const noexcept {return mPins.value(pinUuid);}
+        const QHash<Uuid, SI_SymbolPin*>& getPins() const noexcept {return mPins;}
+        ComponentInstance& getComponentInstance() const noexcept {return *mComponentInstance;}
         const library::Symbol& getLibSymbol() const noexcept {return *mSymbol;}
-        const library::GenCompSymbVarItem& getGenCompSymbVarItem() const noexcept {return *mSymbVarItem;}
+        const library::ComponentSymbolVariantItem& getCompSymbVarItem() const noexcept {return *mSymbVarItem;}
 
         // Setters
-        void setPosition(const Point& newPos) throw (Exception);
-        void setRotation(const Angle& newRotation) throw (Exception);
+        void setPosition(const Point& newPos) noexcept;
+        void setRotation(const Angle& newRotation) noexcept;
 
         // General Methods
-        void addToSchematic(GraphicsScene& scene) throw (Exception);
-        void removeFromSchematic(GraphicsScene& scene) throw (Exception);
+        void addToSchematic(GraphicsScene& scene) throw (Exception) override;
+        void removeFromSchematic(GraphicsScene& scene) throw (Exception) override;
 
         /// @copydoc IF_XmlSerializableObject#serializeToXmlDomElement()
         XmlDomElement* serializeToXmlDomElement() const throw (Exception) override;
@@ -106,10 +104,13 @@ class SI_Symbol final : public SI_Base, public IF_XmlSerializableObject,
         QPainterPath getGrabAreaScenePx() const noexcept override;
         void setSelected(bool selected) noexcept override;
 
+        // Operator Overloadings
+        SI_Symbol& operator=(const SI_Symbol& rhs) = delete;
+
 
     private slots:
 
-        void schematicOrGenCompAttributesChanged();
+        void schematicOrComponentAttributesChanged();
 
 
     signals:
@@ -120,32 +121,30 @@ class SI_Symbol final : public SI_Base, public IF_XmlSerializableObject,
 
     private:
 
-        // make some methods inaccessible...
-        SI_Symbol();
-        SI_Symbol(const SI_Symbol& other);
-        SI_Symbol& operator=(const SI_Symbol& rhs);
-
-        // Private Methods
-        void init(const QUuid& symbVarItemUuid) throw (Exception);
+        void init(const Uuid& symbVarItemUuid) throw (Exception);
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
         bool checkAttributesValidity() const noexcept override;
 
 
         // General
-        Schematic& mSchematic;
-        GenCompInstance* mGenCompInstance;
-        const library::GenCompSymbVarItem* mSymbVarItem;
+        ComponentInstance* mComponentInstance;
+        const library::ComponentSymbolVariantItem* mSymbVarItem;
         const library::Symbol* mSymbol;
-        QHash<QUuid, SI_SymbolPin*> mPins; ///< key: symbol pin UUID
-        SGI_Symbol* mGraphicsItem;
+        QHash<Uuid, SI_SymbolPin*> mPins; ///< key: symbol pin UUID
+        QScopedPointer<SGI_Symbol> mGraphicsItem;
 
         // Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         Point mPosition;
         Angle mRotation;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SI_SYMBOL_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SI_SYMBOL_H

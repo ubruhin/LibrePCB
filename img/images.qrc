@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/img">
+        <file>actions/add_via.png</file>
         <file>actions/apply.png</file>
         <file>actions/bookmark.png</file>
         <file>actions/bookmark_gray.png</file>
@@ -40,6 +41,9 @@
         <file>actions/drawWire.png</file>
         <file>actions/schematic.png</file>
         <file>actions/recent.png</file>
+        <file>command_toolbars/via_round.png</file>
+        <file>command_toolbars/via_square.png</file>
+        <file>command_toolbars/via_octagon.png</file>
         <file>command_toolbars/wire4590.png</file>
         <file>command_toolbars/wire9045.png</file>
         <file>command_toolbars/wireHV.png</file>
@@ -47,9 +51,9 @@
         <file>command_toolbars/wireVH.png</file>
         <file>command_toolbars/cancel.png</file>
         <file>library/3d_model.png</file>
-        <file>library/component.png</file>
+        <file>library/device.png</file>
         <file>library/footprint.png</file>
-        <file>library/generic_component.png</file>
+        <file>library/component.png</file>
         <file>library/package.png</file>
         <file>library/spice_model.png</file>
         <file>library/symbol.png</file>
@@ -87,6 +91,12 @@
         <file>library/vcc.png</file>
         <file>status/dialog-error.png</file>
         <file>status/dialog-warning.png</file>
+        <file>status/info.png</file>
+        <file>status/success.png</file>
+        <file>logo/32x32.png</file>
+        <file>logo/48x48.png</file>
+        <file>logo/64x64.png</file>
+        <file>wizards/watermark.jpg</file>
     </qresource>
     <qresource prefix="/"/>
 </RCC>

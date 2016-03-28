@@ -17,37 +17,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BGI_FOOTPRINT_H
-#define PROJECT_BGI_FOOTPRINT_H
+#ifndef LIBREPCB_PROJECT_BGI_FOOTPRINT_H
+#define LIBREPCB_PROJECT_BGI_FOOTPRINT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "bgi_base.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
+class Text;
 class BoardLayer;
-
-namespace project {
-class BI_Footprint;
-}
 
 namespace library {
 class Footprint;
-class FootprintText;
 }
+
+namespace project {
+
+class BI_Footprint;
 
 /*****************************************************************************************
  *  Class BGI_Footprint
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BGI_Footprint class
@@ -62,6 +60,9 @@ class BGI_Footprint final : public BGI_Base
         // Constructors / Destructor
         explicit BGI_Footprint(BI_Footprint& footprint) noexcept;
         ~BGI_Footprint() noexcept;
+
+        // Getters
+        bool isSelectable() const noexcept;
 
         // General Methods
         void updateCacheAndRepaint() noexcept;
@@ -103,9 +104,14 @@ class BGI_Footprint final : public BGI_Base
         // Cached Attributes
         QRectF mBoundingRect;
         QPainterPath mShape;
-        QHash<const library::FootprintText*, CachedTextProperties_t> mCachedTextProperties;
+        QHash<const Text*, CachedTextProperties_t> mCachedTextProperties;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BGI_FOOTPRINT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BGI_FOOTPRINT_H

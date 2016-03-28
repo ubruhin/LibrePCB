@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "projecteditor.h"
 #include <librepcbcommon/undostack.h>
@@ -32,13 +31,17 @@
 #include "dialogs/projectsettingsdialog.h"
 #include "dialogs/editnetclassesdialog.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-ProjectEditor::ProjectEditor(Workspace& workspace, Project& project) throw (Exception) :
+ProjectEditor::ProjectEditor(workspace::Workspace& workspace, Project& project) throw (Exception) :
     QObject(nullptr), mWorkspace(workspace), mProject(project), mUndoStack(nullptr),
     mSchematicEditor(nullptr), mBoardEditor(nullptr)
 {
@@ -77,7 +80,7 @@ ProjectEditor::~ProjectEditor() noexcept
     // abort all active commands!
     mSchematicEditor->abortAllCommands();
     mBoardEditor->abortAllCommands();
-    Q_ASSERT(mUndoStack->isCommandActive() == false);
+    Q_ASSERT(!mUndoStack->isCommandGroupActive());
 
     // delete all command objects in the undo stack (must be done before other important
     // objects are deleted, as undo command objects can hold pointers/references to them!)
@@ -180,11 +183,15 @@ bool ProjectEditor::autosaveProject() noexcept
     if ((!mProject.isRestored()) && (mUndoStack->isClean()))
         return false; // do not save if there are no changes
 
-    if (mUndoStack->isCommandActive())
+    if (mUndoStack->isCommandGroupActive())
     {
         // the user is executing a command at the moment, so we should not save now,
         // try it a few seconds later instead...
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
         QTimer::singleShot(10000, this, &ProjectEditor::autosaveProject);
+#else
+        QTimer::singleShot(10000, this, SLOT(autosaveProject()));
+#endif
         return false;
     }
 
@@ -245,3 +252,4 @@ bool ProjectEditor::closeAndDestroy(bool askForSave, QWidget* msgBoxParent) noex
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

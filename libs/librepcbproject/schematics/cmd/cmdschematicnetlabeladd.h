@@ -17,33 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICNETLABELADD_H
-#define PROJECT_CMDSCHEMATICNETLABELADD_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETLABELADD_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETLABELADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
 #include <librepcbcommon/units/point.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class NetSignal;
 class Schematic;
 class SI_NetLabel;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicNetLabelAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicNetLabelAdd class
@@ -53,18 +49,29 @@ class CmdSchematicNetLabelAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetLabelAdd(Schematic& schematic, NetSignal& netsignal,
-                                         const Point& position, UndoCommand* parent = 0) throw (Exception);
+        CmdSchematicNetLabelAdd(Schematic& schematic, NetSignal& netsignal,
+                                const Point& position) noexcept;
         ~CmdSchematicNetLabelAdd() noexcept;
 
         // Getters
         SI_NetLabel* getNetLabel() const noexcept {return mNetLabel;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         Schematic& mSchematic;
         NetSignal* mNetSignal;
@@ -72,6 +79,11 @@ class CmdSchematicNetLabelAdd final : public UndoCommand
         SI_NetLabel* mNetLabel;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICNETLABELADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETLABELADD_H

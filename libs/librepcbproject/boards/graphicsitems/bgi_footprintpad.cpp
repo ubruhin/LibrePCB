@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QPrinter>
@@ -30,10 +29,17 @@
 #include "../board.h"
 #include "../../project.h"
 #include <librepcbcommon/boardlayer.h>
-#include <librepcblibrary/fpt/footprintpad.h>
+#include <librepcblibrary/pkg/footprint.h>
 #include "../../settings/projectsettings.h"
-#include "../componentinstance.h"
+#include "../items/bi_device.h"
+#include <librepcblibrary/pkg/package.h>
+#include "../boardlayerstack.h"
+#include "../../circuit/netsignal.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -43,16 +49,12 @@ namespace project {
 BGI_FootprintPad::BGI_FootprintPad(BI_FootprintPad& pad) noexcept :
     BGI_Base(), mPad(pad), mLibPad(pad.getLibPad())
 {
-    QStringList localeOrder = mPad.getProject().getSettings().getLocaleOrder();
-    setToolTip(mLibPad.getName(localeOrder) % ": " % mLibPad.getDescription(localeOrder));
-
-    mStaticText.setTextFormat(Qt::PlainText);
-    mStaticText.setPerformanceHint(QStaticText::AggressiveCaching);
+    setToolTip(mPad.getDisplayText());
 
     mFont.setStyleStrategy(QFont::StyleStrategy(QFont::OpenGLCompatible | QFont::PreferQuality));
     mFont.setStyleHint(QFont::SansSerif);
-    mFont.setFamily("Nimbus Sans L");
-    mFont.setPixelSize(5);
+    mFont.setFamily("Helvetica");
+    mFont.setPixelSize(1);
 
     updateCacheAndRepaint();
 }
@@ -62,29 +64,52 @@ BGI_FootprintPad::~BGI_FootprintPad() noexcept
 }
 
 /*****************************************************************************************
+ *  Getters
+ ****************************************************************************************/
+
+bool BGI_FootprintPad::isSelectable() const noexcept
+{
+    return mPadLayer && mPadLayer->isVisible();
+}
+
+/*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
 
 void BGI_FootprintPad::updateCacheAndRepaint() noexcept
 {
     mShape = QPainterPath();
-    mShape.setFillRule(Qt::WindingFill);
     mBoundingRect = QRectF();
 
     // set Z value
-    if ((mLibPad.getType() == library::FootprintPad::Type_t::SmdRect) && (mPad.getIsMirrored()))
-        setZValue(Board::ZValue_FootprintPadsBottom);
-    else
+    if (mLibPad.getTechnology() == library::FootprintPad::Technology_t::SMT) {
+        const library::FootprintPadSmt* smt = dynamic_cast<const library::FootprintPadSmt*>(&mLibPad);
+        Q_ASSERT(smt);
+        if ((smt->getBoardSide() == library::FootprintPadSmt::BoardSide_t::BOTTOM) != mPad.getIsMirrored())
+            setZValue(Board::ZValue_FootprintPadsBottom);
+        else
+            setZValue(Board::ZValue_FootprintPadsTop);
+    } else {
         setZValue(Board::ZValue_FootprintPadsTop);
+    }
 
-    // rotation
-    Angle absAngle = mLibPad.getRotation() + mPad.getFootprint().getRotation();
-    mRotate180 = (absAngle <= -Angle::deg90() || absAngle > Angle::deg90());
+    // set layer
+    mPadLayer = getBoardLayer(mLibPad.getLayerId());
+    if (mPadLayer) {
+        if (!mPadLayer->isVisible())
+            mPadLayer = nullptr;
+    }
 
-    QRectF rect = QRectF(-mLibPad.getWidth().toPx()/2, -mLibPad.getHeight().toPx()/2,
-                         mLibPad.getWidth().toPx(), mLibPad.getHeight().toPx());
-    mShape.addRect(rect);
-    mBoundingRect = mBoundingRect.united(mShape.boundingRect());
+    // set shape and bounding rect
+    if (mPadLayer) {
+        mShape.addRect(mLibPad.getBoundingRectPx());
+        mBoundingRect = mBoundingRect.united(mShape.boundingRect());
+    }
+
+    if (!mShape.isEmpty())
+        mShape.setFillRule(Qt::WindingFill);
+
+    setVisible(!mBoundingRect.isEmpty());
 
     update();
 }
@@ -100,61 +125,30 @@ void BGI_FootprintPad::paint(QPainter* painter, const QStyleOptionGraphicsItem* 
     //const bool deviceIsPrinter = (dynamic_cast<QPrinter*>(painter->device()) != 0);
     //const qreal lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    BoardLayer* layer;
-    if (mLibPad.getType() == library::FootprintPad::Type_t::SmdRect)
-        layer = getBoardLayer(BoardLayer::LayerID::TopCopper);
-    else
-        layer = getBoardLayer(BoardLayer::LayerID::Vias);
-    Q_ASSERT(layer);
+    if (!mPadLayer) return;
 
-    if (layer->isVisible())
-    {
-        painter->setPen(QPen(layer->getColor(mPad.isSelected()), 0));
-        painter->setBrush(layer->getColor(mPad.isSelected()));
+    const NetSignal* netsignal = mPad.getCompSigInstNetSignal();
+    bool highlight = mPad.isSelected() || (netsignal && netsignal->isHighlighted());
 
-        QRectF rect = QRectF(-mLibPad.getWidth().toPx()/2, -mLibPad.getHeight().toPx()/2,
-                             mLibPad.getWidth().toPx(), mLibPad.getHeight().toPx());
-        switch (mLibPad.getType())
-        {
-            case library::FootprintPad::Type_t::ThtRect:
-            case library::FootprintPad::Type_t::SmdRect:
-                painter->drawRect(rect);
-                break;
-            case library::FootprintPad::Type_t::ThtOctagon:
-            {
-                qreal rx = mLibPad.getWidth().toPx()/2;
-                qreal ry = mLibPad.getHeight().toPx()/2;
-                qreal a = qMin(rx, ry) * (2 - qSqrt(2));
-                QPolygonF octagon;
-                octagon.append(QPointF(rx, ry-a));
-                octagon.append(QPointF(rx-a, ry));
-                octagon.append(QPointF(a-rx, ry));
-                octagon.append(QPointF(-rx, ry-a));
-                octagon.append(QPointF(-rx, a-ry));
-                octagon.append(QPointF(a-rx, -ry));
-                octagon.append(QPointF(rx-a, -ry));
-                octagon.append(QPointF(rx, a-ry));
-                painter->drawPolygon(octagon);
-                break;
-            }
-            case library::FootprintPad::Type_t::ThtRound:
-            {
-                qreal radius = qMin(mLibPad.getWidth().toPx(), mLibPad.getHeight().toPx())/2;
-                painter->drawRoundedRect(rect, radius, radius);
-                break;
-            }
-            default: Q_ASSERT(false); break;
-        }
-    }
+    // draw pad
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(mPadLayer->getColor(highlight));
+    painter->drawPath(mLibPad.toQPainterPathPx());
+
+    // draw pad text
+    painter->setFont(mFont);
+    painter->setPen(mPadLayer->getColor(highlight).lighter(150));
+    painter->drawText(mLibPad.getBoundingRectPx(), Qt::AlignCenter, mPad.getDisplayText());
 
 #ifdef QT_DEBUG
-    layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsBoundingRect); Q_ASSERT(layer);
-    if (layer->isVisible())
-    {
-        // draw bounding rect
-        painter->setPen(QPen(layer->getColor(mPad.isSelected()), 0));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRect(mBoundingRect);
+    BoardLayer* layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsBoundingRects);
+    if (layer) {
+        if (layer->isVisible()) {
+            // draw bounding rect
+            painter->setPen(QPen(layer->getColor(highlight), 0));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(mBoundingRect);
+        }
     }
 #endif
 }
@@ -166,7 +160,7 @@ void BGI_FootprintPad::paint(QPainter* painter, const QStyleOptionGraphicsItem* 
 BoardLayer* BGI_FootprintPad::getBoardLayer(int id) const noexcept
 {
     if (mPad.getIsMirrored()) id = BoardLayer::getMirroredLayerId(id);
-    return mPad.getFootprint().getComponentInstance().getBoard().getProject().getBoardLayer(id);
+    return mPad.getFootprint().getDeviceInstance().getBoard().getLayerStack().getBoardLayer(id);
 }
 
 /*****************************************************************************************
@@ -174,3 +168,4 @@ BoardLayer* BGI_FootprintPad::getBoardLayer(int id) const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

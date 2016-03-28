@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "si_netlabel.h"
 #include "../schematic.h"
@@ -29,7 +28,12 @@
 #include "../../project.h"
 #include <librepcbcommon/fileio/xmldomelement.h>
 #include <librepcbcommon/graphics/graphicsscene.h>
+#include <librepcbcommon/scopeguard.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -37,36 +41,36 @@ namespace project {
  ****************************************************************************************/
 
 SI_NetLabel::SI_NetLabel(Schematic& schematic, const XmlDomElement& domElement) throw (Exception) :
-    SI_Base(), mSchematic(schematic), mGraphicsItem(nullptr), mNetSignal(nullptr)
+    SI_Base(schematic), mUuid(), mPosition(), mRotation(), mNetSignal(nullptr)
 {
     // read attributes
-    mUuid = domElement.getAttribute<QUuid>("uuid");
-    QUuid netSignalUuid = domElement.getAttribute<QUuid>("netsignal", true);
+    mUuid = domElement.getAttribute<Uuid>("uuid", true);
+    Uuid netSignalUuid = domElement.getAttribute<Uuid>("netsignal", true);
     mNetSignal = mSchematic.getProject().getCircuit().getNetSignalByUuid(netSignalUuid);
-    if(!mNetSignal)
-    {
-        throw RuntimeError(__FILE__, __LINE__, netSignalUuid.toString(),
-            QString(tr("Invalid net signal UUID: \"%1\"")).arg(netSignalUuid.toString()));
+    if(!mNetSignal) {
+        throw RuntimeError(__FILE__, __LINE__, netSignalUuid.toStr(),
+            QString(tr("Invalid net signal UUID: \"%1\"")).arg(netSignalUuid.toStr()));
     }
-    mPosition.setX(domElement.getAttribute<Length>("x"));
-    mPosition.setY(domElement.getAttribute<Length>("y"));
-    mRotation = domElement.getAttribute<Angle>("rotation");
+    mPosition.setX(domElement.getAttribute<Length>("x", true));
+    mPosition.setY(domElement.getAttribute<Length>("y", true));
+    mRotation = domElement.getAttribute<Angle>("rotation", true);
 
     init();
 }
 
 SI_NetLabel::SI_NetLabel(Schematic& schematic, NetSignal& netsignal, const Point& position) throw (Exception) :
-    SI_Base(), mSchematic(schematic), mGraphicsItem(nullptr), mPosition(position),
-    mRotation(0), mNetSignal(&netsignal)
+    SI_Base(schematic), mUuid(Uuid::createRandom()), mPosition(position), mRotation(0),
+    mNetSignal(&netsignal)
 {
-    mUuid = QUuid::createUuid(); // generate random UUID
     init();
 }
 
 void SI_NetLabel::init() throw (Exception)
 {
+    connect(mNetSignal, &NetSignal::nameChanged, this, &SI_NetLabel::netSignalNameChanged);
+
     // create the graphics item
-    mGraphicsItem = new SGI_NetLabel(*this);
+    mGraphicsItem.reset(new SGI_NetLabel(*this));
     mGraphicsItem->setPos(mPosition.toPxQPointF());
     mGraphicsItem->setRotation(-mRotation.toDeg());
 
@@ -75,16 +79,7 @@ void SI_NetLabel::init() throw (Exception)
 
 SI_NetLabel::~SI_NetLabel() noexcept
 {
-    delete mGraphicsItem;           mGraphicsItem = nullptr;
-}
-
-/*****************************************************************************************
- *  Getters
- ****************************************************************************************/
-
-Project& SI_NetLabel::getProject() const noexcept
-{
-    return mSchematic.getProject();
+    mGraphicsItem.reset();
 }
 
 /*****************************************************************************************
@@ -93,47 +88,63 @@ Project& SI_NetLabel::getProject() const noexcept
 
 void SI_NetLabel::setNetSignal(NetSignal& netsignal) noexcept
 {
-    if (&netsignal == mNetSignal) return;
-    mNetSignal->unregisterSchematicNetLabel(*this);
-    mNetSignal = &netsignal;
-    mNetSignal->registerSchematicNetLabel(*this);
-    mGraphicsItem->updateCacheAndRepaint();
+    if (&netsignal != mNetSignal) {
+        if (netsignal.getCircuit() != getCircuit()) {
+            throw LogicError(__FILE__, __LINE__);
+        }
+        if (isAddedToSchematic()) {
+            mNetSignal->unregisterSchematicNetLabel(*this); // can throw
+            auto sg = scopeGuard([&](){mNetSignal->registerSchematicNetLabel(*this);});
+            netsignal.registerSchematicNetLabel(*this); // can throw
+            sg.dismiss();
+        }
+        disconnect(mNetSignal, &NetSignal::nameChanged, this, &SI_NetLabel::netSignalNameChanged);
+        connect(&netsignal, &NetSignal::nameChanged, this, &SI_NetLabel::netSignalNameChanged);
+        mNetSignal = &netsignal;
+        mGraphicsItem->updateCacheAndRepaint();
+    }
 }
 
 void SI_NetLabel::setPosition(const Point& position) noexcept
 {
-    if (position == mPosition) return;
-    mPosition = position;
-    mGraphicsItem->setPos(mPosition.toPxQPointF());
+    if (position != mPosition) {
+        mPosition = position;
+        mGraphicsItem->setPos(mPosition.toPxQPointF());
+    }
 }
 
 void SI_NetLabel::setRotation(const Angle& rotation) noexcept
 {
-    if (rotation == mRotation) return;
-    mRotation = rotation;
-    mGraphicsItem->setRotation(-mRotation.toDeg());
-    mGraphicsItem->updateCacheAndRepaint();
+    if (rotation != mRotation) {
+        mRotation = rotation;
+        mGraphicsItem->setRotation(-mRotation.toDeg());
+        mGraphicsItem->updateCacheAndRepaint();
+    }
 }
 
 /*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
 
-void SI_NetLabel::updateText() noexcept
-{
-    mGraphicsItem->updateCacheAndRepaint();
-}
-
 void SI_NetLabel::addToSchematic(GraphicsScene& scene) throw (Exception)
 {
-    mNetSignal->registerSchematicNetLabel(*this);
-    scene.addItem(*mGraphicsItem);
+    if (isAddedToSchematic()) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mNetSignal->registerSchematicNetLabel(*this); // can throw
+    mHighlightChangedConnection = connect(mNetSignal, &NetSignal::highlightedChanged,
+                                          [this](){mGraphicsItem->update();});
+    SI_Base::addToSchematic(scene, *mGraphicsItem);
 }
 
 void SI_NetLabel::removeFromSchematic(GraphicsScene& scene) throw (Exception)
 {
-    mNetSignal->unregisterSchematicNetLabel(*this);
-    scene.removeItem(*mGraphicsItem);
+    if (!isAddedToSchematic()) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mNetSignal->unregisterSchematicNetLabel(*this); // can throw
+    disconnect(mHighlightChangedConnection);
+    SI_Base::removeFromSchematic(scene, *mGraphicsItem);
 }
 
 XmlDomElement* SI_NetLabel::serializeToXmlDomElement() const throw (Exception)
@@ -165,6 +176,16 @@ void SI_NetLabel::setSelected(bool selected) noexcept
 }
 
 /*****************************************************************************************
+ *  Private Slots
+ ****************************************************************************************/
+
+void SI_NetLabel::netSignalNameChanged(const QString& newName) noexcept
+{
+    Q_UNUSED(newName);
+    mGraphicsItem->updateCacheAndRepaint();
+}
+
+/*****************************************************************************************
  *  Private Methods
  ****************************************************************************************/
 
@@ -180,3 +201,4 @@ bool SI_NetLabel::checkAttributesValidity() const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICREMOVE_H
-#define PROJECT_CMDSCHEMATICREMOVE_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICREMOVE_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICREMOVE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
 class Schematic;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicRemove
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicRemove class
@@ -51,21 +47,36 @@ class CmdSchematicRemove final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicRemove(Project& project, Schematic* schematic,
-                                   UndoCommand* parent = 0) throw (Exception);
+        CmdSchematicRemove(Project& project, Schematic& schematic) noexcept;
         ~CmdSchematicRemove() noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
+
         Project& mProject;
-        Schematic* mSchematic;
+        Schematic& mSchematic;
         int mPageIndex;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICREMOVE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICREMOVE_H

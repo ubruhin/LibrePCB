@@ -17,14 +17,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef FILEPATH_H
-#define FILEPATH_H
+#ifndef LIBREPCB_FILEPATH_H
+#define LIBREPCB_FILEPATH_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Class FilePath
@@ -335,6 +339,31 @@ class FilePath final
          */
         static FilePath fromRelative(const FilePath& base, const QString& relative) noexcept;
 
+        /**
+         * @brief Get the path to the temporary directory (e.g. "/tmp" on Unix/Linux)
+         *
+         * @return The filepath (in case of an error, the path can be invalid!)
+         *
+         * @todo test this method on windows and mac!
+         */
+        static FilePath getTempPath() noexcept;
+
+        /**
+         * @brief Get the path to the temporary application directory (e.g. "/tmp/librepcb")
+         *
+         * @return The filepath (in case of an error, the path can be invalid!)
+         *
+         * @todo test this method on windows and mac!
+         */
+        static FilePath getApplicationTempPath() noexcept;
+
+        /**
+         * @brief Get a random temporary directory path (e.g. "/tmp/librepcb/42")
+         *
+         * @return The random filepath (in case of an error, the path can be invalid!)
+         */
+        static FilePath getRandomTempPath() noexcept;
+
 
         // Operator Overloadings
 
@@ -350,7 +379,16 @@ class FilePath final
          *
          * @return true if both filepaths are identical, false otherwise
          */
-        bool operator==(const FilePath& rhs) noexcept;
+        bool operator==(const FilePath& rhs) const noexcept;
+
+        /**
+         * @brief The "!=" operator to compare two FilePath objects
+         *
+         * @note This method compares the return values of #toStr() of both objects.
+         *
+         * @return false if both filepaths are identical, true otherwise
+         */
+        bool operator!=(const FilePath& rhs) const noexcept;
 
 
     private:
@@ -378,4 +416,10 @@ class FilePath final
 QDataStream& operator<<(QDataStream& stream, const FilePath& filepath);
 QDebug& operator<<(QDebug& stream, const FilePath& filepath);
 
-#endif // FILEPATH_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
+
+#endif // LIBREPCB_FILEPATH_H

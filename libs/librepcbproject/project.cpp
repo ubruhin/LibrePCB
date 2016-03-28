@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QPrinter>
 #include <librepcbcommon/exceptions.h>
@@ -38,10 +37,13 @@
 #include "erc/ercmsglist.h"
 #include "settings/projectsettings.h"
 #include "boards/board.h"
-#include "boards/boardlayerprovider.h"
 #include <librepcbcommon/application.h>
 #include "schematics/schematiclayerprovider.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -53,7 +55,7 @@ Project::Project(const FilePath& filepath, bool create, bool readOnly) throw (Ex
     mFilepath(filepath), mXmlFile(nullptr), mFileLock(filepath), mIsRestored(false),
     mIsReadOnly(readOnly), mDescriptionHtmlFile(nullptr), mProjectSettings(nullptr),
     mProjectLibrary(nullptr), mErcMsgList(nullptr), mCircuit(nullptr),
-    mSchematicLayerProvider(nullptr), mBoardLayerProvider(nullptr)
+    mSchematicLayerProvider(nullptr)
 {
     qDebug() << (create ? "create project:" : "open project:") << filepath.toNative();
 
@@ -182,10 +184,10 @@ Project::Project(const FilePath& filepath, bool create, bool readOnly) throw (Ex
         }
         else
         {
-            mName = root->getFirstChild("meta/name", true, true)->getText();
-            mAuthor = root->getFirstChild("meta/author", true, true)->getText();
-            mCreated = root->getFirstChild("meta/created", true, true)->getText<QDateTime>();
-            mLastModified = root->getFirstChild("meta/last_modified", true, true)->getText<QDateTime>();
+            mName = root->getFirstChild("meta/name", true, true)->getText<QString>(false);
+            mAuthor = root->getFirstChild("meta/author", true, true)->getText<QString>(false);
+            mCreated = root->getFirstChild("meta/created", true, true)->getText<QDateTime>(true);
+            mLastModified = root->getFirstChild("meta/last_modified", true, true)->getText<QDateTime>(true);
         }
 
         // Load description HTML file
@@ -209,38 +211,35 @@ Project::Project(const FilePath& filepath, bool create, bool readOnly) throw (Ex
         {
             FilePath fp = FilePath::fromRelative(mPath.getPathTo("schematics"), "main.xml");
             Schematic* schematic = Schematic::create(*this, fp, "Main Page");
-            addSchematic(schematic);
+            addSchematic(*schematic);
         }
         else
         {
             for (XmlDomElement* node = root->getFirstChild("schematics/schematic", true, false);
                  node; node = node->getNextSibling("schematic"))
             {
-                FilePath fp = FilePath::fromRelative(mPath.getPathTo("schematics"), node->getText(true));
+                FilePath fp = FilePath::fromRelative(mPath.getPathTo("schematics"), node->getText<QString>(true));
                 Schematic* schematic = new Schematic(*this, fp, mIsRestored, mIsReadOnly);
-                addSchematic(schematic);
+                addSchematic(*schematic);
             }
             qDebug() << mSchematics.count() << "schematics successfully loaded!";
         }
-
-        // Load all board layers
-        mBoardLayerProvider = new BoardLayerProvider(*this);
 
         // Load all boards
         if (create)
         {
             FilePath fp = FilePath::fromRelative(mPath.getPathTo("boards"), "default.xml");
             Board* board = Board::create(*this, fp, "Default");
-            addBoard(board);
+            addBoard(*board);
         }
         else
         {
             for (XmlDomElement* node = root->getFirstChild("boards/board", true, false);
                  node; node = node->getNextSibling("board"))
             {
-                FilePath fp = FilePath::fromRelative(mPath.getPathTo("boards"), node->getText(true));
+                FilePath fp = FilePath::fromRelative(mPath.getPathTo("boards"), node->getText<QString>(true));
                 Board* board = new Board(*this, fp, mIsRestored, mIsReadOnly);
-                addBoard(board);
+                addBoard(*board);
             }
             qDebug() << mBoards.count() << "boards successfully loaded!";
         }
@@ -258,10 +257,9 @@ Project::Project(const FilePath& filepath, bool create, bool readOnly) throw (Ex
     {
         // free the allocated memory in the reverse order of their allocation...
         foreach (Board* board, mBoards)
-            try { removeBoard(board, true); } catch (...) {}
+            try { removeBoard(*board, true); } catch (...) {}
         foreach (Schematic* schematic, mSchematics)
-            try { removeSchematic(schematic, true); } catch (...) {}
-        delete mBoardLayerProvider;     mBoardLayerProvider = nullptr;
+            try { removeSchematic(*schematic, true); } catch (...) {}
         delete mSchematicLayerProvider; mSchematicLayerProvider = nullptr;
         delete mCircuit;                mCircuit = nullptr;
         delete mErcMsgList;             mErcMsgList = nullptr;
@@ -282,13 +280,12 @@ Project::~Project() noexcept
 
     // delete all boards and schematics (and catch all throwed exceptions)
     foreach (Board* board, mBoards)
-        try { removeBoard(board, true); } catch (...) {}
+        try { removeBoard(*board, true); } catch (...) {}
     qDeleteAll(mRemovedBoards); mRemovedBoards.clear();
     foreach (Schematic* schematic, mSchematics)
-        try { removeSchematic(schematic, true); } catch (...) {}
+        try { removeSchematic(*schematic, true); } catch (...) {}
     qDeleteAll(mRemovedSchematics); mRemovedSchematics.clear();
 
-    delete mBoardLayerProvider;     mBoardLayerProvider = nullptr;
     delete mSchematicLayerProvider; mSchematicLayerProvider = nullptr;
     delete mCircuit;                mCircuit = nullptr;
     delete mErcMsgList;             mErcMsgList = nullptr;
@@ -315,32 +312,42 @@ QString Project::getDescription() const noexcept
 
 void Project::setName(const QString& newName) noexcept
 {
-    mName = newName;
-    emit attributesChanged();
+    if (newName != mName) {
+        mName = newName;
+        emit attributesChanged();
+    }
 }
 
 void Project::setDescription(const QString& newDescription) noexcept
 {
-    mDescriptionHtmlFile->setContent(newDescription.toUtf8());
-    emit attributesChanged();
+    if (newDescription != mDescriptionHtmlFile->getContent()) {
+        mDescriptionHtmlFile->setContent(newDescription.toUtf8());
+        emit attributesChanged();
+    }
 }
 
 void Project::setAuthor(const QString& newAuthor) noexcept
 {
-    mAuthor = newAuthor;
-    emit attributesChanged();
+    if (newAuthor != mAuthor) {
+        mAuthor = newAuthor;
+        emit attributesChanged();
+    }
 }
 
 void Project::setCreated(const QDateTime& newCreated) noexcept
 {
-    mCreated = newCreated;
-    emit attributesChanged();
+    if (newCreated != mCreated) {
+        mCreated = newCreated;
+        emit attributesChanged();
+    }
 }
 
 void Project::setLastModified(const QDateTime& newLastModified) noexcept
 {
-    mLastModified = newLastModified;
-    emit attributesChanged();
+    if (newLastModified != mLastModified) {
+        mLastModified = newLastModified;
+        emit attributesChanged();
+    }
 }
 
 /*****************************************************************************************
@@ -352,15 +359,14 @@ SchematicLayer* Project::getSchematicLayer(int id) const noexcept
     return mSchematicLayerProvider->getSchematicLayer(id);
 }
 
-int Project::getSchematicIndex(const Schematic* schematic) const noexcept
+int Project::getSchematicIndex(const Schematic& schematic) const noexcept
 {
-    return mSchematics.indexOf(const_cast<Schematic*>(schematic));
+    return mSchematics.indexOf(const_cast<Schematic*>(&schematic));
 }
 
-Schematic* Project::getSchematicByUuid(const QUuid& uuid) const noexcept
+Schematic* Project::getSchematicByUuid(const Uuid& uuid) const noexcept
 {
-    foreach (Schematic* schematic, mSchematics)
-    {
+    foreach (Schematic* schematic, mSchematics) {
         if (schematic->getUuid() == uuid)
             return schematic;
     }
@@ -369,8 +375,7 @@ Schematic* Project::getSchematicByUuid(const QUuid& uuid) const noexcept
 
 Schematic* Project::getSchematicByName(const QString& name) const noexcept
 {
-    foreach (Schematic* schematic, mSchematics)
-    {
+    foreach (Schematic* schematic, mSchematics) {
         if (schematic->getName() == name)
             return schematic;
     }
@@ -384,61 +389,62 @@ Schematic* Project::createSchematic(const QString& name) throw (Exception)
     return Schematic::create(*this, filepath, name);
 }
 
-void Project::addSchematic(Schematic* schematic, int newIndex) throw (Exception)
+void Project::addSchematic(Schematic& schematic, int newIndex) throw (Exception)
 {
-    Q_ASSERT(schematic);
-
-    if ((newIndex < 0) || (newIndex > mSchematics.count()))
-        newIndex = mSchematics.count();
-
-    if (getSchematicByUuid(schematic->getUuid()))
-    {
-        throw RuntimeError(__FILE__, __LINE__, schematic->getUuid().toString(),
+    if ((mSchematics.contains(&schematic)) || (&schematic.getProject() != this)) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if (getSchematicByUuid(schematic.getUuid())) {
+        throw RuntimeError(__FILE__, __LINE__, schematic.getUuid().toStr(),
             QString(tr("There is already a schematic with the UUID \"%1\"!"))
-            .arg(schematic->getUuid().toString()));
+            .arg(schematic.getUuid().toStr()));
     }
-
-    if (getSchematicByName(schematic->getName()))
-    {
-        throw RuntimeError(__FILE__, __LINE__, schematic->getName(),
+    if (getSchematicByName(schematic.getName())) {
+        throw RuntimeError(__FILE__, __LINE__, schematic.getName(),
             QString(tr("There is already a schematic with the name \"%1\"!"))
-            .arg(schematic->getName()));
+            .arg(schematic.getName()));
     }
 
-    schematic->addToProject(); // can throw an exception
-    mSchematics.insert(newIndex, schematic);
+    if ((newIndex < 0) || (newIndex > mSchematics.count())) {
+        newIndex = mSchematics.count();
+    }
 
-    if (mRemovedSchematics.contains(schematic))
-        mRemovedSchematics.removeOne(schematic);
+    schematic.addToProject(); // can throw
+    mSchematics.insert(newIndex, &schematic);
+
+    if (mRemovedSchematics.contains(&schematic)) {
+        mRemovedSchematics.removeOne(&schematic);
+    }
 
     emit schematicAdded(newIndex);
     emit attributesChanged();
 }
 
-void Project::removeSchematic(Schematic* schematic, bool deleteSchematic) throw (Exception)
+void Project::removeSchematic(Schematic& schematic, bool deleteSchematic) throw (Exception)
 {
-    Q_ASSERT(schematic);
-    int index = mSchematics.indexOf(schematic);
-    Q_ASSERT(index >= 0);
-    Q_ASSERT(!mRemovedSchematics.contains(schematic));
-
-    if ((!deleteSchematic) && (!schematic->isEmpty()))
-    {
+    if ((!mSchematics.contains(&schematic)) || (mRemovedSchematics.contains(&schematic))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if ((!deleteSchematic) && (!schematic.isEmpty())) {
         throw RuntimeError(__FILE__, __LINE__, QString(),
             QString(tr("There are still elements in the schematic \"%1\"!"))
-            .arg(schematic->getName()));
+            .arg(schematic.getName()));
     }
 
-    schematic->removeFromProject(); // can throw an exception
+    int index = getSchematicIndex(schematic);
+    Q_ASSERT(index >= 0);
+
+    schematic.removeFromProject(); // can throw
     mSchematics.removeAt(index);
 
     emit schematicRemoved(index);
     emit attributesChanged();
 
-    if (deleteSchematic)
-        delete schematic;
-    else
-        mRemovedSchematics.append(schematic);
+    if (deleteSchematic) {
+        delete &schematic;
+    } else {
+        mRemovedSchematics.append(&schematic);
+    }
 }
 
 void Project::exportSchematicsAsPdf(const FilePath& filepath) throw (Exception)
@@ -463,20 +469,14 @@ void Project::exportSchematicsAsPdf(const FilePath& filepath) throw (Exception)
  *  Board Methods
  ****************************************************************************************/
 
-BoardLayer* Project::getBoardLayer(int id) const noexcept
+int Project::getBoardIndex(const Board& board) const noexcept
 {
-    return mBoardLayerProvider->getBoardLayer(id);
+    return mBoards.indexOf(const_cast<Board*>(&board));
 }
 
-int Project::getBoardIndex(const Board* board) const noexcept
+Board* Project::getBoardByUuid(const Uuid& uuid) const noexcept
 {
-    return mBoards.indexOf(const_cast<Board*>(board));
-}
-
-Board* Project::getBoardByUuid(const QUuid& uuid) const noexcept
-{
-    foreach (Board* board, mBoards)
-    {
+    foreach (Board* board, mBoards) {
         if (board->getUuid() == uuid)
             return board;
     }
@@ -485,8 +485,7 @@ Board* Project::getBoardByUuid(const QUuid& uuid) const noexcept
 
 Board* Project::getBoardByName(const QString& name) const noexcept
 {
-    foreach (Board* board, mBoards)
-    {
+    foreach (Board* board, mBoards) {
         if (board->getName() == name)
             return board;
     }
@@ -500,61 +499,64 @@ Board* Project::createBoard(const QString& name) throw (Exception)
     return Board::create(*this, filepath, name);
 }
 
-void Project::addBoard(Board* board, int newIndex) throw (Exception)
+Board* Project::createBoard(const Board& other, const QString& name) throw (Exception)
 {
-    Q_ASSERT(board);
+    QString basename = name; /// @todo remove special characters to create a valid filename!
+    FilePath filepath = mPath.getPathTo("boards/" % basename % ".xml");
+    return new Board(other, filepath, name);
+}
 
-    if ((newIndex < 0) || (newIndex > mBoards.count()))
-        newIndex = mBoards.count();
-
-    if (getBoardByUuid(board->getUuid()))
-    {
-        throw RuntimeError(__FILE__, __LINE__, board->getUuid().toString(),
+void Project::addBoard(Board& board, int newIndex) throw (Exception)
+{
+    if ((mBoards.contains(&board)) || (&board.getProject() != this)) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if (getBoardByUuid(board.getUuid())) {
+        throw RuntimeError(__FILE__, __LINE__, board.getUuid().toStr(),
             QString(tr("There is already a board with the UUID \"%1\"!"))
-            .arg(board->getUuid().toString()));
+            .arg(board.getUuid().toStr()));
     }
-
-    if (getBoardByName(board->getName()))
-    {
-        throw RuntimeError(__FILE__, __LINE__, board->getName(),
+    if (getBoardByName(board.getName())) {
+        throw RuntimeError(__FILE__, __LINE__, board.getName(),
             QString(tr("There is already a board with the name \"%1\"!"))
-            .arg(board->getName()));
+            .arg(board.getName()));
     }
 
-    board->addToProject(); // can throw an exception
-    mBoards.insert(newIndex, board);
+    if ((newIndex < 0) || (newIndex > mBoards.count())) {
+        newIndex = mBoards.count();
+    }
 
-    if (mRemovedBoards.contains(board))
-        mRemovedBoards.removeOne(board);
+    board.addToProject(); // can throw
+    mBoards.insert(newIndex, &board);
+
+    if (mRemovedBoards.contains(&board)) {
+        mRemovedBoards.removeOne(&board);
+    }
 
     emit boardAdded(newIndex);
     emit attributesChanged();
 }
 
-void Project::removeBoard(Board* board, bool deleteBoard) throw (Exception)
+void Project::removeBoard(Board& board, bool deleteBoard) throw (Exception)
 {
-    Q_ASSERT(board);
-    int index = mBoards.indexOf(board);
-    Q_ASSERT(index >= 0);
-    Q_ASSERT(!mRemovedBoards.contains(board));
-
-    if ((!deleteBoard) && (!board->isEmpty()))
-    {
-        throw RuntimeError(__FILE__, __LINE__, QString(),
-            QString(tr("There are still elements in the board \"%1\"!"))
-            .arg(board->getName()));
+    if ((!mBoards.contains(&board)) || (mRemovedBoards.contains(&board))) {
+        throw LogicError(__FILE__, __LINE__);
     }
 
-    board->removeFromProject(); // can throw an exception
+    int index = getBoardIndex(board);
+    Q_ASSERT(index >= 0);
+
+    board.removeFromProject(); // can throw
     mBoards.removeAt(index);
 
     emit boardRemoved(index);
     emit attributesChanged();
 
-    if (deleteBoard)
-        delete board;
-    else
-        mRemovedBoards.append(board);
+    if (deleteBoard) {
+        delete &board;
+    } else {
+        mRemovedBoards.append(&board);
+    }
 }
 
 /*****************************************************************************************
@@ -675,27 +677,27 @@ bool Project::save(bool toOriginal, QStringList& errors) noexcept
     if (!mCircuit->save(toOriginal, errors))
         success = false;
 
-    // Save all added schematics (*.xml files)
-    foreach (Schematic* schematic, mSchematics)
-    {
-        if (!schematic->save(toOriginal, errors))
-            success = false;
-    }
     // Save all removed schematics (*.xml files)
     foreach (Schematic* schematic, mRemovedSchematics)
     {
         if (!schematic->save(toOriginal, errors))
             success = false;
     }
+    // Save all added schematics (*.xml files)
+    foreach (Schematic* schematic, mSchematics)
+    {
+        if (!schematic->save(toOriginal, errors))
+            success = false;
+    }
 
-    // Save all added boards (*.xml files)
-    foreach (Board* board, mBoards)
+    // Save all removed boards (*.xml files)
+    foreach (Board* board, mRemovedBoards)
     {
         if (!board->save(toOriginal, errors))
             success = false;
     }
-    // Save all removed boards (*.xml files)
-    foreach (Board* board, mRemovedBoards)
+    // Save all added boards (*.xml files)
+    foreach (Board* board, mBoards)
     {
         if (!board->save(toOriginal, errors))
             success = false;
@@ -755,3 +757,4 @@ void Project::printSchematicPages(QPrinter& printer, QList<int>& pages) throw (E
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

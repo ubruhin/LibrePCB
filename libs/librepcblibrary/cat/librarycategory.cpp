@@ -20,11 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "librarycategory.h"
 #include <librepcbcommon/fileio/xmldomelement.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace library {
 
 /*****************************************************************************************
@@ -32,7 +35,7 @@ namespace library {
  ****************************************************************************************/
 
 LibraryCategory::LibraryCategory(const QString& xmlFileNamePrefix,
-                                 const QString& xmlRootNodeName, const QUuid& uuid,
+                                 const QString& xmlRootNodeName, const Uuid& uuid,
                                  const Version& version, const QString& author,
                                  const QString& name_en_US, const QString& description_en_US,
                                  const QString& keywords_en_US) throw (Exception) :
@@ -42,8 +45,8 @@ LibraryCategory::LibraryCategory(const QString& xmlFileNamePrefix,
 
 LibraryCategory::LibraryCategory(const FilePath& elementDirectory,
                                  const QString& xmlFileNamePrefix,
-                                 const QString& xmlRootNodeName) throw (Exception) :
-    LibraryBaseElement(elementDirectory, xmlFileNamePrefix, xmlRootNodeName)
+                                 const QString& xmlRootNodeName, bool readOnly) throw (Exception) :
+    LibraryBaseElement(elementDirectory, xmlFileNamePrefix, xmlRootNodeName, readOnly)
 {
 }
 
@@ -60,7 +63,7 @@ void LibraryCategory::parseDomTree(const XmlDomElement& root) throw (Exception)
     LibraryBaseElement::parseDomTree(root);
 
     // read parent uuid
-    mParentUuid = root.getFirstChild("meta/parent", true, true)->getText<QUuid>(false);
+    mParentUuid = root.getFirstChild("meta/parent", true, true)->getText<Uuid>(false);
 }
 
 XmlDomElement* LibraryCategory::serializeToXmlDomElement() const throw (Exception)
@@ -81,3 +84,4 @@ bool LibraryCategory::checkAttributesValidity() const noexcept
  ****************************************************************************************/
 
 } // namespace library
+} // namespace librepcb

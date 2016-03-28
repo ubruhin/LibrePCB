@@ -17,30 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SCHEMATICEDITOREVENT_H
-#define PROJECT_SCHEMATICEDITOREVENT_H
+#ifndef LIBREPCB_PROJECT_SCHEMATICEDITOREVENT_H
+#define LIBREPCB_PROJECT_SCHEMATICEDITOREVENT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+#include <librepcbcommon/uuid.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
 class Schematic;
 class SchematicEditor;
-}
 
 namespace Ui {
 class SchematicEditor;
 }
-
-namespace project {
 
 /*****************************************************************************************
  *  Class SEE_Base
@@ -73,10 +71,10 @@ class SEE_Base
             Edit_RotateCW,      ///< rotate the selected elements 90° CW (Shift+r)
             Edit_Remove,        ///< remove the selected elements
             // Redirected QEvent's (SEE_RedirectedQEvent objects, with pointer to a QEvent)
-            GraphicsViewEvent,  ///< event from #GraphicsView @see project#SEE_RedirectedQEvent
+            GraphicsViewEvent,  ///< event from #GraphicsView @see #project#SEE_RedirectedQEvent
             // Special Events (with some additional parameters)
-            StartAddComponent,      ///< @see project#SEE_StartAddComponent
-            SwitchToSchematicPage,  ///< @see project#SEE_SwitchToSchematicPage
+            StartAddComponent,      ///< @see #project#SEE_StartAddComponent
+            SwitchToSchematicPage,  ///< @see #project#SEE_SwitchToSchematicPage
         };
 
         // Constructors / Destructor
@@ -143,13 +141,13 @@ class SEE_RedirectedQEvent final : public SEE_Base
 };
 
 /*****************************************************************************************
- *  Class SEE_SetAddComponentParams
+ *  Class SEE_StartAddComponent
  ****************************************************************************************/
 
 /**
  * @brief The SEE_StartAddComponent class
  *
- * @see project#SES_AddComponents
+ * @see #project#SES_AddComponents
  */
 class SEE_StartAddComponent final : public SEE_Base
 {
@@ -157,17 +155,17 @@ class SEE_StartAddComponent final : public SEE_Base
 
         // Constructors / Destructor
         SEE_StartAddComponent();
-        SEE_StartAddComponent(const QUuid& genComp, const QUuid& symbVar);
+        SEE_StartAddComponent(const Uuid& cmp, const Uuid& symbVar);
         ~SEE_StartAddComponent();
 
         // Getters
-        const QUuid& getGenCompUuid() const noexcept {return mGenCompUuid;}
-        const QUuid& getSymbVarUuid() const noexcept {return mSymbVarUuid;}
+        const Uuid& getComponentUuid() const noexcept {return mComponentUuid;}
+        const Uuid& getSymbVarUuid() const noexcept {return mSymbVarUuid;}
 
     private:
 
-        QUuid mGenCompUuid;
-        QUuid mSymbVarUuid;
+        Uuid mComponentUuid;
+        Uuid mSymbVarUuid;
 };
 
 /*****************************************************************************************
@@ -184,7 +182,7 @@ class SEE_StartAddComponent final : public SEE_Base
  * the schematic is allowed (event accepted) or not (event rejected). If the event was
  * accepted, the schematic editor then will switch to the requested schematic page.
  *
- * @see project#SchematicEditor#setActiveSchematicIndex()
+ * @see #project#SchematicEditor#setActiveSchematicIndex()
  */
 class SEE_SwitchToSchematicPage final : public SEE_Base
 {
@@ -204,6 +202,11 @@ class SEE_SwitchToSchematicPage final : public SEE_Base
         unsigned int mSchematicIndex; ///< the requested schematic page index
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SCHEMATICEDITOREVENT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SCHEMATICEDITOREVENT_H

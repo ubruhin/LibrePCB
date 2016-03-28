@@ -20,66 +20,52 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdnetclassadd.h"
 #include "../netclass.h"
 #include "../circuit.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdNetClassAdd::CmdNetClassAdd(Circuit& circuit, const QString& name,
-                               UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add netclass"), parent),
+CmdNetClassAdd::CmdNetClassAdd(Circuit& circuit, const QString& name) noexcept :
+    UndoCommand(tr("Add netclass")),
     mCircuit(circuit), mName(name), mNetClass(nullptr)
 {
 }
 
 CmdNetClassAdd::~CmdNetClassAdd() noexcept
 {
-    if (!isExecuted())
-        delete mNetClass;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdNetClassAdd::redo() throw (Exception)
+bool CmdNetClassAdd::performExecute() throw (Exception)
 {
-    if (!mNetClass) // only the first time
-        mNetClass = new NetClass(mCircuit, mName); // throws an exception on error
+    mNetClass = new NetClass(mCircuit, mName); // can throw
 
-    mCircuit.addNetClass(*mNetClass); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception &e)
-    {
-        mCircuit.removeNetClass(*mNetClass);
-        throw;
-    }
+    return true;
 }
 
-void CmdNetClassAdd::undo() throw (Exception)
+void CmdNetClassAdd::performUndo() throw (Exception)
 {
-    mCircuit.removeNetClass(*mNetClass); // throws an exception on error
+    mCircuit.removeNetClass(*mNetClass); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mCircuit.addNetClass(*mNetClass);
-        throw;
-    }
+void CmdNetClassAdd::performRedo() throw (Exception)
+{
+    mCircuit.addNetClass(*mNetClass); // can throw
 }
 
 /*****************************************************************************************
@@ -87,3 +73,4 @@ void CmdNetClassAdd::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

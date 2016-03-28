@@ -20,10 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "schematiclayer.h"
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -149,8 +153,8 @@ SchematicLayer::SchematicLayer(int id) :
             mIsVisible = false;
             break;
 
-        case DEBUG_GenCompSymbolsCount:
-            mName = tr("DEBUG_GenCompSymbolsCount");
+        case DEBUG_ComponentSymbolsCount:
+            mName = tr("DEBUG_ComponentSymbolsCount");
             mColor = Qt::darkRed;
             mColorHighlighted = Qt::red;
             mIsVisible = false;
@@ -186,3 +190,5 @@ const QColor& SchematicLayer::getColor(bool highlighted) const
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

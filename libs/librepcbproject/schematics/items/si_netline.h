@@ -17,33 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SI_NETLINE_H
-#define PROJECT_SI_NETLINE_H
+#ifndef LIBREPCB_PROJECT_SI_NETLINE_H
+#define LIBREPCB_PROJECT_SI_NETLINE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "si_base.h"
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include "../graphicsitems/sgi_netline.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class NetSignal;
-class Schematic;
 class SI_NetPoint;
-}
 
 /*****************************************************************************************
  *  Class SI_NetLine
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The SI_NetLine class
@@ -55,28 +51,28 @@ class SI_NetLine final : public SI_Base, public IF_XmlSerializableObject
     public:
 
         // Constructors / Destructor
-        explicit SI_NetLine(Schematic& schematic, const XmlDomElement& domElement) throw (Exception);
-        explicit SI_NetLine(Schematic& schematic, SI_NetPoint& startPoint,
-                            SI_NetPoint& endPoint, const Length& width) throw (Exception);
+        SI_NetLine() = delete;
+        SI_NetLine(const SI_NetLine& other) = delete;
+        SI_NetLine(Schematic& schematic, const XmlDomElement& domElement) throw (Exception);
+        SI_NetLine(Schematic& schematic, SI_NetPoint& startPoint, SI_NetPoint& endPoint,
+                   const Length& width) throw (Exception);
         ~SI_NetLine() noexcept;
 
         // Getters
-        Project& getProject() const noexcept;
-        Schematic& getSchematic() const noexcept {return mSchematic;}
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const Length& getWidth() const noexcept {return mWidth;}
         SI_NetPoint& getStartPoint() const noexcept {return *mStartPoint;}
         SI_NetPoint& getEndPoint() const noexcept {return *mEndPoint;}
-        NetSignal* getNetSignal() const noexcept;
+        NetSignal& getNetSignal() const noexcept;
         bool isAttachedToSymbol() const noexcept;
 
         // Setters
         void setWidth(const Length& width) noexcept;
 
         // General Methods
+        void addToSchematic(GraphicsScene& scene) throw (Exception) override;
+        void removeFromSchematic(GraphicsScene& scene) throw (Exception) override;
         void updateLine() noexcept;
-        void addToSchematic(GraphicsScene& scene) throw (Exception);
-        void removeFromSchematic(GraphicsScene& scene) throw (Exception);
 
         /// @copydoc IF_XmlSerializableObject#serializeToXmlDomElement()
         XmlDomElement* serializeToXmlDomElement() const throw (Exception) override;
@@ -88,15 +84,12 @@ class SI_NetLine final : public SI_Base, public IF_XmlSerializableObject
         QPainterPath getGrabAreaScenePx() const noexcept override;
         void setSelected(bool selected) noexcept override;
 
+        // Operator Overloadings
+        SI_NetLine& operator=(const SI_NetLine& rhs) = delete;
+
 
     private:
 
-        // make some methods inaccessible...
-        SI_NetLine();
-        SI_NetLine(const SI_NetLine& other);
-        SI_NetLine& operator=(const SI_NetLine& rhs);
-
-        // Private Methods
         void init() throw (Exception);
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
@@ -104,17 +97,22 @@ class SI_NetLine final : public SI_Base, public IF_XmlSerializableObject
 
 
         // General
-        Schematic& mSchematic;
-        SGI_NetLine* mGraphicsItem;
+        QScopedPointer<SGI_NetLine> mGraphicsItem;
         Point mPosition; ///< the center of startpoint and endpoint
+        QMetaObject::Connection mHighlightChangedConnection;
 
         // Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         SI_NetPoint* mStartPoint;
         SI_NetPoint* mEndPoint;
         Length mWidth;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SI_NETLINE_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SI_NETLINE_H

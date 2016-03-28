@@ -20,14 +20,16 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "schematiceditorevent.h"
 #include "../schematiceditor.h"
 #include "ui_schematiceditor.h"
 #include <librepcbproject/schematics/schematic.h>
 
-
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -44,16 +46,16 @@ SEE_Base::~SEE_Base()
 }
 
 /*****************************************************************************************
- *  Class SEE_SetAddComponentParams
+ *  Class SEE_StartAddComponent
  ****************************************************************************************/
 
 SEE_StartAddComponent::SEE_StartAddComponent() :
-    SEE_Base(EventType_t::StartAddComponent), mGenCompUuid(), mSymbVarUuid()
+    SEE_Base(EventType_t::StartAddComponent), mComponentUuid(), mSymbVarUuid()
 {
 }
 
-SEE_StartAddComponent::SEE_StartAddComponent(const QUuid& genComp, const QUuid& symbVar) :
-    SEE_Base(EventType_t::StartAddComponent), mGenCompUuid(genComp), mSymbVarUuid(symbVar)
+SEE_StartAddComponent::SEE_StartAddComponent(const Uuid& cmp, const Uuid& symbVar) :
+    SEE_Base(EventType_t::StartAddComponent), mComponentUuid(cmp), mSymbVarUuid(symbVar)
 {
 }
 
@@ -66,3 +68,4 @@ SEE_StartAddComponent::~SEE_StartAddComponent()
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

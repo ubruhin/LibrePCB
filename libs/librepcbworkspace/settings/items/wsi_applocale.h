@@ -17,14 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WSI_APPLOCALE_H
-#define WSI_APPLOCALE_H
+#ifndef LIBREPCB_WSI_APPLOCALE_H
+#define LIBREPCB_WSI_APPLOCALE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include "wsi_base.h"
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 /*****************************************************************************************
  *  Class WSI_AppLocale
@@ -99,4 +104,11 @@ class WSI_AppLocale final : public WSI_Base
         QComboBox* mComboBox;
 };
 
-#endif // WSI_APPLOCALE_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_WSI_APPLOCALE_H

@@ -20,20 +20,22 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetlabeledit.h"
 #include "../items/si_netlabel.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdSchematicNetLabelEdit::CmdSchematicNetLabelEdit(SI_NetLabel& netlabel,
-                                                   UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Edit netlabel"), parent), mNetLabel(netlabel),
+CmdSchematicNetLabelEdit::CmdSchematicNetLabelEdit(SI_NetLabel& netlabel) noexcept :
+    UndoCommand(tr("Edit netlabel")), mNetLabel(netlabel),
     mOldNetSignal(&netlabel.getNetSignal()), mNewNetSignal(mOldNetSignal),
     mOldPos(netlabel.getPosition()), mNewPos(mOldPos),
     mOldRotation(netlabel.getRotation()), mNewRotation(mOldRotation)
@@ -42,8 +44,7 @@ CmdSchematicNetLabelEdit::CmdSchematicNetLabelEdit(SI_NetLabel& netlabel,
 
 CmdSchematicNetLabelEdit::~CmdSchematicNetLabelEdit() noexcept
 {
-    if ((mRedoCount == 0) && (mUndoCount == 0))
-    {
+    if (!wasEverExecuted()) {
         // revert temporary changes
         mNetLabel.setNetSignal(*mOldNetSignal);
         mNetLabel.setPosition(mOldPos);
@@ -57,35 +58,35 @@ CmdSchematicNetLabelEdit::~CmdSchematicNetLabelEdit() noexcept
 
 void CmdSchematicNetLabelEdit::setNetSignal(NetSignal& netsignal, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewNetSignal = &netsignal;
     if (immediate) mNetLabel.setNetSignal(*mNewNetSignal);
 }
 
 void CmdSchematicNetLabelEdit::setPosition(const Point& position, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewPos = position;
     if (immediate) mNetLabel.setPosition(mNewPos);
 }
 
 void CmdSchematicNetLabelEdit::setDeltaToStartPos(const Point& deltaPos, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewPos = mOldPos + deltaPos;
     if (immediate) mNetLabel.setPosition(mNewPos);
 }
 
 void CmdSchematicNetLabelEdit::setRotation(const Angle& angle, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewRotation = angle;
     if (immediate) mNetLabel.setRotation(mNewRotation);
 }
 
 void CmdSchematicNetLabelEdit::rotate(const Angle& angle, const Point& center, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewPos.rotate(angle, center);
     mNewRotation += angle;
     if (immediate)
@@ -99,40 +100,25 @@ void CmdSchematicNetLabelEdit::rotate(const Angle& angle, const Point& center, b
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetLabelEdit::redo() throw (Exception)
+bool CmdSchematicNetLabelEdit::performExecute() throw (Exception)
 {
-    try
-    {
-        mNetLabel.setNetSignal(*mNewNetSignal);
-        mNetLabel.setPosition(mNewPos);
-        mNetLabel.setRotation(mNewRotation);
-        UndoCommand::redo();
-    }
-    catch (Exception& e)
-    {
-        mNetLabel.setNetSignal(*mOldNetSignal);
-        mNetLabel.setPosition(mOldPos);
-        mNetLabel.setRotation(mOldRotation);
-        throw;
-    }
+    performRedo(); // can throw
+
+    return true; // TODO: determine if the netlabel was really modified
 }
 
-void CmdSchematicNetLabelEdit::undo() throw (Exception)
+void CmdSchematicNetLabelEdit::performUndo() throw (Exception)
 {
-    try
-    {
-        mNetLabel.setNetSignal(*mOldNetSignal);
-        mNetLabel.setPosition(mOldPos);
-        mNetLabel.setRotation(mOldRotation);
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mNetLabel.setNetSignal(*mNewNetSignal);
-        mNetLabel.setPosition(mNewPos);
-        mNetLabel.setRotation(mNewRotation);
-        throw;
-    }
+    mNetLabel.setNetSignal(*mOldNetSignal);
+    mNetLabel.setPosition(mOldPos);
+    mNetLabel.setRotation(mOldRotation);
+}
+
+void CmdSchematicNetLabelEdit::performRedo() throw (Exception)
+{
+    mNetLabel.setNetSignal(*mNewNetSignal);
+    mNetLabel.setPosition(mNewPos);
+    mNetLabel.setRotation(mNewRotation);
 }
 
 /*****************************************************************************************
@@ -140,3 +126,4 @@ void CmdSchematicNetLabelEdit::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

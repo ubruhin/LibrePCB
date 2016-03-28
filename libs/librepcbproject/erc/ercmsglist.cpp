@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ercmsglist.h"
 #include "ercmsg.h"
@@ -30,6 +29,10 @@
 #include <librepcbcommon/fileio/xmldomdocument.h>
 #include <librepcbcommon/fileio/xmldomelement.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -37,7 +40,7 @@ namespace project {
  ****************************************************************************************/
 
 ErcMsgList::ErcMsgList(Project& project, bool restore, bool readOnly, bool create) throw (Exception) :
-    QObject(0), mProject(project),
+    QObject(&project), mProject(project),
     mXmlFilepath(project.getPath().getPathTo("core/erc.xml")), mXmlFile(nullptr)
 {
     try
@@ -111,9 +114,9 @@ void ErcMsgList::restoreIgnoreState() noexcept
     {
         foreach (ErcMsg* ercMsg, mItems)
         {
-            if ((ercMsg->getOwner().getErcMsgOwnerClassName() == node->getAttribute("owner_class"))
-             && (ercMsg->getOwnerKey() == node->getAttribute("owner_key"))
-             && (ercMsg->getMsgKey() == node->getAttribute("msg_key")))
+            if ((ercMsg->getOwner().getErcMsgOwnerClassName() == node->getAttribute<QString>("owner_class", false))
+             && (ercMsg->getOwnerKey() == node->getAttribute<QString>("owner_key", false))
+             && (ercMsg->getMsgKey() == node->getAttribute<QString>("msg_key", false)))
             {
                 ercMsg->setIgnored(true);
             }
@@ -174,3 +177,4 @@ XmlDomElement* ErcMsgList::serializeToXmlDomElement() const throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

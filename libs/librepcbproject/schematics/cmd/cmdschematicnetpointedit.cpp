@@ -20,29 +20,32 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetpointedit.h"
+#include <librepcbcommon/scopeguardlist.h>
 #include "../items/si_netpoint.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdSchematicNetPointEdit::CmdSchematicNetPointEdit(SI_NetPoint& point,
-                                                   UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Edit netpoint"), parent), mNetPoint(point),
-    mOldNetSignal(point.getNetSignal()), mNewNetSignal(mOldNetSignal),
+CmdSchematicNetPointEdit::CmdSchematicNetPointEdit(SI_NetPoint& point) noexcept :
+    UndoCommand(tr("Edit netpoint")), mNetPoint(point),
+    mOldNetSignal(&point.getNetSignal()), mNewNetSignal(mOldNetSignal),
+    mOldSymbolPin(point.getSymbolPin()), mNewSymbolPin(mOldSymbolPin),
     mOldPos(point.getPosition()), mNewPos(mOldPos)
 {
 }
 
 CmdSchematicNetPointEdit::~CmdSchematicNetPointEdit() noexcept
 {
-    if ((mRedoCount == 0) && (mUndoCount == 0))
-    {
+    if (!wasEverExecuted()) {
         mNetPoint.setPosition(mOldPos);
     }
 }
@@ -53,20 +56,26 @@ CmdSchematicNetPointEdit::~CmdSchematicNetPointEdit() noexcept
 
 void CmdSchematicNetPointEdit::setNetSignal(NetSignal& netsignal) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewNetSignal = &netsignal;
+}
+
+void CmdSchematicNetPointEdit::setPinToAttach(SI_SymbolPin* pin) noexcept
+{
+    Q_ASSERT(!wasEverExecuted());
+    mNewSymbolPin = pin;
 }
 
 void CmdSchematicNetPointEdit::setPosition(const Point& pos, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewPos = pos;
     if (immediate) mNetPoint.setPosition(mNewPos);
 }
 
 void CmdSchematicNetPointEdit::setDeltaToStartPos(const Point& deltaPos, bool immediate) noexcept
 {
-    Q_ASSERT((mRedoCount == 0) && (mUndoCount == 0));
+    Q_ASSERT(!wasEverExecuted());
     mNewPos = mOldPos + deltaPos;
     if (immediate) mNetPoint.setPosition(mNewPos);
 }
@@ -75,36 +84,33 @@ void CmdSchematicNetPointEdit::setDeltaToStartPos(const Point& deltaPos, bool im
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetPointEdit::redo() throw (Exception)
+bool CmdSchematicNetPointEdit::performExecute() throw (Exception)
 {
-    try
-    {
-        mNetPoint.setNetSignal(*mNewNetSignal);
-        mNetPoint.setPosition(mNewPos);
-        UndoCommand::redo();
-    }
-    catch (Exception &e)
-    {
-        mNetPoint.setNetSignal(*mOldNetSignal);
-        mNetPoint.setPosition(mOldPos);
-        throw;
-    }
+    performRedo(); // can throw
+
+    return true; // TODO: determine if the netpoint was really modified
 }
 
-void CmdSchematicNetPointEdit::undo() throw (Exception)
+void CmdSchematicNetPointEdit::performUndo() throw (Exception)
 {
-    try
-    {
-        mNetPoint.setNetSignal(*mOldNetSignal);
-        mNetPoint.setPosition(mOldPos);
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mNetPoint.setNetSignal(*mNewNetSignal);
-        mNetPoint.setPosition(mNewPos);
-        throw;
-    }
+    ScopeGuardList sgl;
+    mNetPoint.setNetSignal(*mOldNetSignal); // can throw
+    sgl.add([&](){mNetPoint.setNetSignal(*mNewNetSignal);});
+    mNetPoint.setPinToAttach(mOldSymbolPin); // can throw
+    sgl.add([&](){mNetPoint.setPinToAttach(mNewSymbolPin);});
+    mNetPoint.setPosition(mOldPos);
+    sgl.dismiss();
+}
+
+void CmdSchematicNetPointEdit::performRedo() throw (Exception)
+{
+    ScopeGuardList sgl;
+    mNetPoint.setNetSignal(*mNewNetSignal); // can throw
+    sgl.add([&](){mNetPoint.setNetSignal(*mOldNetSignal);});
+    mNetPoint.setPinToAttach(mNewSymbolPin); // can throw
+    sgl.add([&](){mNetPoint.setPinToAttach(mOldSymbolPin);});
+    mNetPoint.setPosition(mNewPos);
+    sgl.dismiss();
 }
 
 /*****************************************************************************************
@@ -112,3 +118,4 @@ void CmdSchematicNetPointEdit::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

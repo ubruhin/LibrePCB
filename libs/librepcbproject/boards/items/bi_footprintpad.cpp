@@ -20,139 +20,177 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bi_footprintpad.h"
 #include "bi_footprint.h"
-#include <librepcblibrary/fpt/footprint.h>
-#include <librepcblibrary/fpt/footprintpad.h>
+#include <librepcblibrary/pkg/footprint.h>
+#include <librepcblibrary/pkg/footprintpad.h>
+#include <librepcblibrary/pkg/packagepad.h>
 #include "../board.h"
 #include "../../project.h"
 #include "../../circuit/circuit.h"
 #include "../../settings/projectsettings.h"
 #include <librepcbcommon/graphics/graphicsscene.h>
-#include "../componentinstance.h"
+#include "bi_device.h"
+#include <librepcblibrary/dev/device.h>
+#include "../../circuit/componentinstance.h"
+#include <librepcblibrary/cmp/component.h>
+#include "bi_netpoint.h"
+#include "../../circuit/componentsignalinstance.h"
+#include <librepcbcommon/boardlayer.h>
+#include "../../circuit/netsignal.h"
+#include <librepcblibrary/pkg/package.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-BI_FootprintPad::BI_FootprintPad(BI_Footprint& footprint, const QUuid& padUuid) :
-    BI_Base(), mCircuit(footprint.getComponentInstance().getBoard().getProject().getCircuit()),
-    mFootprint(footprint), mFootprintPad(nullptr), /*mGenCompSignal(nullptr),
-    mGenCompSignalInstance(nullptr),*/ mAddedToBoard(false),
-    /*mRegisteredNetPoint(nullptr),*/ mGraphicsItem(nullptr)
+BI_FootprintPad::BI_FootprintPad(BI_Footprint& footprint, const Uuid& padUuid) :
+    BI_Base(footprint.getBoard()), mFootprint(footprint), mFootprintPad(nullptr),
+    mPackagePad(nullptr), mComponentSignalInstance(nullptr)
 {
-    // read attributes
     mFootprintPad = mFootprint.getLibFootprint().getPadByUuid(padUuid);
-    if (!mFootprintPad)
-    {
-        throw RuntimeError(__FILE__, __LINE__, padUuid.toString(),
-            QString(tr("Invalid footprint pad UUID: \"%1\"")).arg(padUuid.toString()));
+    if (!mFootprintPad) {
+        throw RuntimeError(__FILE__, __LINE__, padUuid.toStr(),
+            QString(tr("Invalid footprint pad UUID: \"%1\"")).arg(padUuid.toStr()));
     }
+    mPackagePad = mFootprint.getDeviceInstance().getLibPackage().getPadByUuid(padUuid);
+    if (!mPackagePad) {
+        throw RuntimeError(__FILE__, __LINE__, padUuid.toStr(),
+            QString(tr("Invalid package pad UUID: \"%1\"")).arg(padUuid.toStr()));
+    }
+    Uuid cmpSignalUuid = mFootprint.getDeviceInstance().getLibDevice().getSignalOfPad(padUuid);
+    mComponentSignalInstance = mFootprint.getDeviceInstance().getComponentInstance().getSignalInstance(cmpSignalUuid);
 
-    mGraphicsItem = new BGI_FootprintPad(*this);
+    mGraphicsItem.reset(new BGI_FootprintPad(*this));
     updatePosition();
+
+    // connect to the "attributes changed" signal of the footprint
+    connect(&mFootprint, &BI_Footprint::attributesChanged,
+            this, &BI_FootprintPad::footprintAttributesChanged);
 }
 
 BI_FootprintPad::~BI_FootprintPad()
 {
-    //Q_ASSERT(mRegisteredNetPoint == nullptr);
-    delete mGraphicsItem;       mGraphicsItem = nullptr;
+    Q_ASSERT(!isUsed());
+    mGraphicsItem.reset();
 }
 
 /*****************************************************************************************
  *  Getters
  ****************************************************************************************/
 
-Project& BI_FootprintPad::getProject() const noexcept
-{
-    return mFootprint.getProject();
-}
-
-Board& BI_FootprintPad::getBoard() const noexcept
-{
-    return mFootprint.getBoard();
-}
-
-const QUuid& BI_FootprintPad::getLibPadUuid() const noexcept
+const Uuid& BI_FootprintPad::getLibPadUuid() const noexcept
 {
     return mFootprintPad->getUuid();
 }
 
-/*QString BI_FootprintPad::getDisplayText(bool returnGenCompSignalNameIfEmpty,
-                                     bool returnPinNameIfEmpty) const noexcept
+QString BI_FootprintPad::getDisplayText() const noexcept
 {
-    const QStringList& localeOrder = mCircuit.getProject().getSettings().getLocaleOrder(true);
-
-    QString text;
-    switch (mSymbol.getGenCompSymbVarItem().getDisplayTypeOfPin(mSymbolPin->getUuid()))
-    {
-        case library::GenCompSymbVarItem::PinDisplayType_t::PinName:
-            text = mSymbolPin->getName(localeOrder); break;
-        case library::GenCompSymbVarItem::PinDisplayType_t::GenCompSignal:
-            if (mGenCompSignal) text = mGenCompSignal->getName(localeOrder); break;
-        case library::GenCompSymbVarItem::PinDisplayType_t::NetSignal:
-            if (mGenCompSignalInstance->getNetSignal()) text = mGenCompSignalInstance->getNetSignal()->getName(); break;
-        default: break;
+    NetSignal* signal = getCompSigInstNetSignal();
+    if (signal) {
+        return QString("%1:\n%2").arg(mPackagePad->getName(), signal->getName());
+    } else {
+        return mPackagePad->getName();
     }
-    if (text.isEmpty() && returnGenCompSignalNameIfEmpty && mGenCompSignal)
-        text = mGenCompSignal->getName(localeOrder);
-    if (text.isEmpty() && returnPinNameIfEmpty)
-        text = mSymbolPin->getName(localeOrder);
-    return text;
-}*/
+}
+
+int BI_FootprintPad::getLayerId() const noexcept
+{
+    if (getIsMirrored())
+        return BoardLayer::getMirroredLayerId(mFootprintPad->getLayerId());
+    else
+        return mFootprintPad->getLayerId();
+}
+
+bool BI_FootprintPad::isOnLayer(const BoardLayer& layer) const noexcept
+{
+    if (getIsMirrored()) {
+        return mFootprintPad->isOnLayer(layer.getMirroredLayerId());
+    } else {
+        return mFootprintPad->isOnLayer(layer.getId());
+    }
+}
+
+NetSignal* BI_FootprintPad::getCompSigInstNetSignal() const noexcept
+{
+    if (mComponentSignalInstance) {
+        return mComponentSignalInstance->getNetSignal();
+    } else {
+        return nullptr;
+    }
+}
 
 /*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
+
+void BI_FootprintPad::addToBoard(GraphicsScene& scene) throw (Exception)
+{
+    if (isAddedToBoard() || isUsed()) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if (mComponentSignalInstance) {
+        mComponentSignalInstance->registerFootprintPad(*this); // can throw
+    }
+    BI_Base::addToBoard(scene, *mGraphicsItem);
+}
+
+void BI_FootprintPad::removeFromBoard(GraphicsScene& scene) throw (Exception)
+{
+    if ((!isAddedToBoard()) || isUsed()) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if (mComponentSignalInstance) {
+        mComponentSignalInstance->unregisterFootprintPad(*this); // can throw
+    }
+    BI_Base::removeFromBoard(scene, *mGraphicsItem);
+}
+
+void BI_FootprintPad::registerNetPoint(BI_NetPoint& netpoint) throw (Exception)
+{
+    if ((!isAddedToBoard()) || (!mComponentSignalInstance)
+        || (netpoint.getBoard() != mBoard)
+        || (mRegisteredNetPoints.contains(netpoint.getLayer().getId()))
+        || (&netpoint.getNetSignal() != mComponentSignalInstance->getNetSignal())
+        || (!netpoint.getLayer().isCopperLayer())
+        || ((mFootprintPad->getTechnology() == library::FootprintPad::Technology_t::SMT)
+            && (netpoint.getLayer().getId() != getLayerId())))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredNetPoints.insert(netpoint.getLayer().getId(), &netpoint);
+    netpoint.updateLines();
+}
+
+void BI_FootprintPad::unregisterNetPoint(BI_NetPoint& netpoint) throw (Exception)
+{
+    if ((!isAddedToBoard()) || (!mComponentSignalInstance)
+        || (getNetPointOfLayer(netpoint.getLayer().getId()) != &netpoint)
+        || (&netpoint.getNetSignal() != mComponentSignalInstance->getNetSignal()))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredNetPoints.remove(netpoint.getLayer().getId());
+    netpoint.updateLines();
+}
 
 void BI_FootprintPad::updatePosition() noexcept
 {
     mPosition = mFootprint.mapToScene(mFootprintPad->getPosition());
     mRotation = mFootprint.getRotation() + mFootprintPad->getRotation();
     mGraphicsItem->setPos(mPosition.toPxQPointF());
-    mGraphicsItem->setRotation(mRotation.toDeg());
-    bool m = (mGraphicsItem->transform().m11() * mGraphicsItem->transform().m22() < qreal(0));
-    if (getIsMirrored() != m) mGraphicsItem->setTransform(QTransform::fromScale(qreal(-1), qreal(1)), true);
+    updateGraphicsItemTransform();
     mGraphicsItem->updateCacheAndRepaint();
-    //if (mRegisteredNetPoint)
-    //    mRegisteredNetPoint->setPosition(mPosition);
-}
-
-/*void BI_FootprintPad::registerNetPoint(SI_NetPoint& netpoint)
-{
-    Q_ASSERT(mRegisteredNetPoint == nullptr);
-    mRegisteredNetPoint = &netpoint;
-    updateErcMessages();
-}
-
-void BI_FootprintPad::unregisterNetPoint(SI_NetPoint& netpoint)
-{
-    Q_UNUSED(netpoint); // to avoid compiler warning in release mode
-    Q_ASSERT(mRegisteredNetPoint == &netpoint);
-    mRegisteredNetPoint = nullptr;
-    updateErcMessages();
-}*/
-
-void BI_FootprintPad::addToBoard(GraphicsScene& scene) noexcept
-{
-    Q_ASSERT(mAddedToBoard == false);
-    //Q_ASSERT(mRegisteredNetPoint == nullptr);
-    //mGenCompSignalInstance->registerSymbolPin(*this);
-    scene.addItem(*mGraphicsItem);
-    mAddedToBoard = true;
-}
-
-void BI_FootprintPad::removeFromBoard(GraphicsScene& scene) noexcept
-{
-    Q_ASSERT(mAddedToBoard == true);
-    //Q_ASSERT(mRegisteredNetPoint == nullptr);
-    //mGenCompSignalInstance->unregisterSymbolPin(*this);
-    scene.removeItem(*mGraphicsItem);
-    mAddedToBoard = false;
+    foreach (BI_NetPoint* netpoint, mRegisteredNetPoints) {
+        netpoint->setPosition(mPosition);
+    }
 }
 
 /*****************************************************************************************
@@ -169,6 +207,11 @@ QPainterPath BI_FootprintPad::getGrabAreaScenePx() const noexcept
     return mGraphicsItem->sceneTransform().map(mGraphicsItem->shape());
 }
 
+bool BI_FootprintPad::isSelectable() const noexcept
+{
+    return mFootprint.isSelectable() && mGraphicsItem->isSelectable();
+}
+
 void BI_FootprintPad::setSelected(bool selected) noexcept
 {
     BI_Base::setSelected(selected);
@@ -176,7 +219,29 @@ void BI_FootprintPad::setSelected(bool selected) noexcept
 }
 
 /*****************************************************************************************
+ *  Private Slots
+ ****************************************************************************************/
+
+void BI_FootprintPad::footprintAttributesChanged()
+{
+    mGraphicsItem->updateCacheAndRepaint();
+}
+
+/*****************************************************************************************
+ *  Private Methods
+ ****************************************************************************************/
+
+void BI_FootprintPad::updateGraphicsItemTransform() noexcept
+{
+    QTransform t;
+    if (mFootprint.getIsMirrored()) t.scale(qreal(-1), qreal(1));
+    t.rotate(-mRotation.toDeg());
+    mGraphicsItem->setTransform(t);
+}
+
+/*****************************************************************************************
  *  End of File
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

@@ -20,12 +20,15 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdprojectlibraryaddelement.h"
 #include "../projectlibrary.h"
 #include <librepcblibrary/elements.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -34,9 +37,8 @@ namespace project {
 
 template <typename ElementType>
 CmdProjectLibraryAddElement<ElementType>::CmdProjectLibraryAddElement(ProjectLibrary& library,
-                                                                      const ElementType& element,
-                                                                      UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add element to library"), parent),
+                                                                      ElementType& element) noexcept :
+    UndoCommand(tr("Add element to library")),
     mLibrary(library), mElement(element)
 {
 }
@@ -51,35 +53,23 @@ CmdProjectLibraryAddElement<ElementType>::~CmdProjectLibraryAddElement() noexcep
  ****************************************************************************************/
 
 template <typename ElementType>
-void CmdProjectLibraryAddElement<ElementType>::redo() throw (Exception)
+bool CmdProjectLibraryAddElement<ElementType>::performExecute() throw (Exception)
 {
-    addElement(); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception &e)
-    {
-        removeElement(); // throws an exception on error
-        throw;
-    }
+    return true;
 }
 
 template <typename ElementType>
-void CmdProjectLibraryAddElement<ElementType>::undo() throw (Exception)
+void CmdProjectLibraryAddElement<ElementType>::performUndo() throw (Exception)
 {
-    removeElement(); // throws an exception on error
+    removeElement(); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        addElement(); // throws an exception on error
-        throw;
-    }
+template <typename ElementType>
+void CmdProjectLibraryAddElement<ElementType>::performRedo() throw (Exception)
+{
+    addElement(); // can throw
 }
 
 /*****************************************************************************************
@@ -89,61 +79,37 @@ void CmdProjectLibraryAddElement<ElementType>::undo() throw (Exception)
 template <>
 void CmdProjectLibraryAddElement<library::Symbol>::addElement()
 {
-    return mLibrary.addSymbol(mElement);
-}
-
-template <>
-void CmdProjectLibraryAddElement<library::Footprint>::addElement()
-{
-    return mLibrary.addFootprint(mElement);
-}
-
-template <>
-void CmdProjectLibraryAddElement<library::Model3D>::addElement()
-{
-    return mLibrary.add3dModel(mElement);
+    mLibrary.addSymbol(mElement);
 }
 
 template <>
 void CmdProjectLibraryAddElement<library::SpiceModel>::addElement()
 {
-    return mLibrary.addSpiceModel(mElement);
+    mLibrary.addSpiceModel(mElement);
 }
 
 template <>
 void CmdProjectLibraryAddElement<library::Package>::addElement()
 {
-    return mLibrary.addPackage(mElement);
-}
-
-template <>
-void CmdProjectLibraryAddElement<library::GenericComponent>::addElement()
-{
-    return mLibrary.addGenComp(mElement);
+    mLibrary.addPackage(mElement);
 }
 
 template <>
 void CmdProjectLibraryAddElement<library::Component>::addElement()
 {
-    return mLibrary.addComp(mElement);
+    mLibrary.addComponent(mElement);
+}
+
+template <>
+void CmdProjectLibraryAddElement<library::Device>::addElement()
+{
+    mLibrary.addDevice(mElement);
 }
 
 template <>
 void CmdProjectLibraryAddElement<library::Symbol>::removeElement()
 {
     mLibrary.removeSymbol(mElement);
-}
-
-template <>
-void CmdProjectLibraryAddElement<library::Footprint>::removeElement()
-{
-    mLibrary.removeFootprint(mElement);
-}
-
-template <>
-void CmdProjectLibraryAddElement<library::Model3D>::removeElement()
-{
-    mLibrary.remove3dModel(mElement);
 }
 
 template <>
@@ -159,15 +125,15 @@ void CmdProjectLibraryAddElement<library::Package>::removeElement()
 }
 
 template <>
-void CmdProjectLibraryAddElement<library::GenericComponent>::removeElement()
+void CmdProjectLibraryAddElement<library::Component>::removeElement()
 {
-    mLibrary.removeGenComp(mElement);
+    mLibrary.removeComponent(mElement);
 }
 
 template <>
-void CmdProjectLibraryAddElement<library::Component>::removeElement()
+void CmdProjectLibraryAddElement<library::Device>::removeElement()
 {
-    mLibrary.removeComp(mElement);
+    mLibrary.removeDevice(mElement);
 }
 
 /*****************************************************************************************
@@ -175,15 +141,14 @@ void CmdProjectLibraryAddElement<library::Component>::removeElement()
  ****************************************************************************************/
 
 template class CmdProjectLibraryAddElement<library::Symbol>;
-template class CmdProjectLibraryAddElement<library::Footprint>;
-template class CmdProjectLibraryAddElement<library::Model3D>;
 template class CmdProjectLibraryAddElement<library::SpiceModel>;
 template class CmdProjectLibraryAddElement<library::Package>;
-template class CmdProjectLibraryAddElement<library::GenericComponent>;
 template class CmdProjectLibraryAddElement<library::Component>;
+template class CmdProjectLibraryAddElement<library::Device>;
 
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

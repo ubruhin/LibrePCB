@@ -3,13 +3,15 @@
 
 #include <QtCore>
 #include <QtWidgets>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/fileio/filepath.h>
+#include <librepcbcommon/fileio/xmldomelement.h>
 
 namespace Ui {
 class MainWindow;
 }
 
-class XmlDomElement;
+namespace librepcb {
 
 class MainWindow : public QMainWindow
 {
@@ -40,20 +42,28 @@ class MainWindow : public QMainWindow
 
         enum class ConvertFileType_t {
             Symbols_to_Symbols,
-            Packages_to_FootprintsAndComponents,
-            Devices_to_GenericComponents
+            Packages_to_PackagesAndDevices,
+            Devices_to_Components
         };
 
         void reset();
-        void addError(const QString& msg, const FilePath& inputFile = FilePath(), int inputLine = 0);
-        QUuid getOrCreateUuid(QSettings& outputSettings, const FilePath& filepath,
-                              const QString& cat, const QString& key1, const QString& key2 = QString());
-        QString createDescription(const FilePath& filepath, const QString& name);
+        void addError(const QString& msg, const librepcb::FilePath& inputFile = librepcb::FilePath(), int inputLine = 0);
+        librepcb::Uuid getOrCreateUuid(QSettings& outputSettings,
+                                       const librepcb::FilePath& filepath,
+                                       const QString& cat, const QString& key1,
+                                       const QString& key2 = QString());
+        QString createDescription(const librepcb::FilePath& filepath, const QString& name);
+        int convertSchematicLayerId(int eagleLayerId);
+        int convertBoardLayerId(int eagleLayerId);
         void convertAllFiles(ConvertFileType_t type);
-        void convertFile(ConvertFileType_t type, QSettings& outputSettings, const FilePath& filepath);
-        bool convertSymbol(QSettings& outputSettings, const FilePath& filepath, XmlDomElement* node);
-        bool convertPackage(QSettings& outputSettings, const FilePath& filepath, XmlDomElement* node);
-        bool convertDevice(QSettings& outputSettings, const FilePath& filepath, XmlDomElement* node);
+        void convertFile(ConvertFileType_t type, QSettings& outputSettings,
+                         const librepcb::FilePath& filepath);
+        bool convertSymbol(QSettings& outputSettings, const librepcb::FilePath& filepath,
+                           librepcb::XmlDomElement* node);
+        bool convertPackage(QSettings& outputSettings, const librepcb::FilePath& filepath,
+                            librepcb::XmlDomElement* node);
+        bool convertDevice(QSettings& outputSettings, const librepcb::FilePath& filepath,
+                           librepcb::XmlDomElement* node);
 
         // Attributes
         Ui::MainWindow *ui;
@@ -62,5 +72,7 @@ class MainWindow : public QMainWindow
         int mReadedElementsCount;
         int mConvertedElementsCount;
 };
+
+}
 
 #endif // MAINWINDOW_H

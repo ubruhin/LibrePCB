@@ -17,19 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H
-#define PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H
+#ifndef LIBREPCB_PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H
+#define LIBREPCB_PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class UndoStack;
 class UndoCommand;
@@ -37,10 +37,10 @@ class AttributeType;
 class AttributeUnit;
 
 namespace project {
+
 class Project;
-class GenCompInstance;
+class ComponentInstance;
 class SI_Symbol;
-}
 
 namespace Ui {
 class SymbolInstancePropertiesDialog;
@@ -49,8 +49,6 @@ class SymbolInstancePropertiesDialog;
 /*****************************************************************************************
  *  Class SymbolInstancePropertiesDialog
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The SymbolInstancePropertiesDialog class
@@ -62,7 +60,7 @@ class SymbolInstancePropertiesDialog final : public QDialog
     public:
 
         // Constructors / Destructor
-        explicit SymbolInstancePropertiesDialog(Project& project, GenCompInstance& genComp,
+        explicit SymbolInstancePropertiesDialog(Project& project, ComponentInstance& cmp,
                                                 SI_Symbol& symbol, UndoStack& undoStack,
                                                 QWidget* parent) noexcept;
         ~SymbolInstancePropertiesDialog() noexcept;
@@ -71,8 +69,8 @@ class SymbolInstancePropertiesDialog final : public QDialog
     private slots:
 
         // GUI Events
-        void on_tblGenCompInstAttributes_currentCellChanged(int currentRow, int currentColumn,
-                                                            int previousRow, int previousColumn);
+        void on_tblCompInstAttributes_currentCellChanged(int currentRow, int currentColumn,
+                                                         int previousRow, int previousColumn);
         void on_cbxAttrType_currentIndexChanged(int index);
         void on_cbxAttrUnit_currentIndexChanged(int index);
         void on_btnAttrApply_clicked();
@@ -107,7 +105,7 @@ class SymbolInstancePropertiesDialog final : public QDialog
 
         // General
         Project& mProject;
-        GenCompInstance& mGenCompInstance;
+        ComponentInstance& mComponentInstance;
         SI_Symbol& mSymbol;
         Ui::SymbolInstancePropertiesDialog* mUi;
         UndoStack& mUndoStack;
@@ -119,6 +117,11 @@ class SymbolInstancePropertiesDialog final : public QDialog
         const AttributeUnit* mSelectedAttrUnit;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SYMBOLINSTANCEPROPERTIESDIALOG_H

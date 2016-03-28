@@ -17,31 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSYMBOLINSTANCEEDIT_H
-#define PROJECT_CMDSYMBOLINSTANCEEDIT_H
+#ifndef LIBREPCB_PROJECT_CMDSYMBOLINSTANCEEDIT_H
+#define LIBREPCB_PROJECT_CMDSYMBOLINSTANCEEDIT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 #include <librepcbcommon/units/all_length_units.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class SI_Symbol;
-}
 
 /*****************************************************************************************
  *  Class CmdSymbolInstanceEdit
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSymbolInstanceEdit class
@@ -51,7 +47,7 @@ class CmdSymbolInstanceEdit final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSymbolInstanceEdit(SI_Symbol& symbol, UndoCommand* parent = 0) throw (Exception);
+        explicit CmdSymbolInstanceEdit(SI_Symbol& symbol) noexcept;
         ~CmdSymbolInstanceEdit() noexcept;
 
         // General Methods
@@ -60,12 +56,22 @@ class CmdSymbolInstanceEdit final : public UndoCommand
         void setRotation(const Angle& angle, bool immediate) noexcept;
         void rotate(const Angle& angle, const Point& center, bool immediate) noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
-
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         // Attributes from the constructor
         SI_Symbol& mSymbol;
@@ -77,6 +83,11 @@ class CmdSymbolInstanceEdit final : public UndoCommand
         Angle mNewRotation;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSYMBOLINSTANCEEDIT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSYMBOLINSTANCEEDIT_H

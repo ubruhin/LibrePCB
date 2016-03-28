@@ -20,14 +20,17 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdsymbolinstanceadd.h"
 #include "../items/si_symbol.h"
 #include "../schematic.h"
 #include "../../circuit/circuit.h"
-#include "../../circuit/gencompinstance.h"
+#include "../../circuit/componentinstance.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -35,60 +38,50 @@ namespace project {
  ****************************************************************************************/
 
 CmdSymbolInstanceAdd::CmdSymbolInstanceAdd(Schematic& schematic,
-                                           GenCompInstance& genComp,
-                                           const QUuid& symbolItem, const Point& position,
-                                           const Angle& angle,
-                                           UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add symbol instance"), parent),
-    mSchematic(schematic), mSymbol(nullptr)
+        ComponentInstance& cmpInstance, const Uuid& symbolItem, const Point& position,
+        const Angle& angle) noexcept :
+    UndoCommand(tr("Add symbol instance")),
+    mSchematic(schematic), mComponentInstance(&cmpInstance), mSymbolItemUuid(symbolItem),
+    mPosition(position), mAngle(angle), mSymbolInstance(nullptr)
 {
-    mSymbol = mSchematic.createSymbol(genComp, symbolItem, position, angle); // throws an exception on error
 }
 
-CmdSymbolInstanceAdd::CmdSymbolInstanceAdd(SI_Symbol& symbol, UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add symbol instance"), parent),
-    mSchematic(symbol.getSchematic()), mSymbol(&symbol)
+CmdSymbolInstanceAdd::CmdSymbolInstanceAdd(SI_Symbol& symbol) noexcept :
+    UndoCommand(tr("Add symbol instance")),
+    mSchematic(symbol.getSchematic()), mComponentInstance(nullptr), mSymbolItemUuid(),
+    mPosition(), mAngle(), mSymbolInstance(&symbol)
 {
 }
 
 CmdSymbolInstanceAdd::~CmdSymbolInstanceAdd() noexcept
 {
-    if (!isExecuted())
-        delete mSymbol;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSymbolInstanceAdd::redo() throw (Exception)
+bool CmdSymbolInstanceAdd::performExecute() throw (Exception)
 {
-    mSchematic.addSymbol(*mSymbol); // throws an exception on error
+    if (!mSymbolInstance) {
+        // create new symbol instance
+        mSymbolInstance = new SI_Symbol(mSchematic, *mComponentInstance, mSymbolItemUuid,
+                                        mPosition, mAngle); // can throw
+    }
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception &e)
-    {
-        mSchematic.removeSymbol(*mSymbol);
-        throw;
-    }
+    performRedo(); // can throw
+
+    return true;
 }
 
-void CmdSymbolInstanceAdd::undo() throw (Exception)
+void CmdSymbolInstanceAdd::performUndo() throw (Exception)
 {
-    mSchematic.removeSymbol(*mSymbol);  // throws an exception on error
+    mSchematic.removeSymbol(*mSymbolInstance); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mSchematic.addSymbol(*mSymbol);
-        throw;
-    }
+void CmdSymbolInstanceAdd::performRedo() throw (Exception)
+{
+    mSchematic.addSymbol(*mSymbolInstance); // can throw
 }
 
 /*****************************************************************************************
@@ -96,3 +89,4 @@ void CmdSymbolInstanceAdd::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

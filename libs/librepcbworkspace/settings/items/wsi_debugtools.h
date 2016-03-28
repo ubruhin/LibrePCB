@@ -17,14 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WSI_DEBUGTOOLS_H
-#define WSI_DEBUGTOOLS_H
+#ifndef LIBREPCB_WSI_DEBUGTOOLS_H
+#define LIBREPCB_WSI_DEBUGTOOLS_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include "wsi_base.h"
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 /*****************************************************************************************
  *  Class WSI_DebugTools
@@ -64,4 +69,11 @@ class WSI_DebugTools final : public WSI_Base
         QWidget* mWidget;
 };
 
-#endif // WSI_DEBUGTOOLS_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_WSI_DEBUGTOOLS_H

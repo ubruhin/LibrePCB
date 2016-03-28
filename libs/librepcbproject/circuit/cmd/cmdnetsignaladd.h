@@ -17,32 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDNETSIGNALADD_H
-#define PROJECT_CMDNETSIGNALADD_H
+#ifndef LIBREPCB_PROJECT_CMDNETSIGNALADD_H
+#define LIBREPCB_PROJECT_CMDNETSIGNALADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Circuit;
 class NetClass;
 class NetSignal;
-}
 
 /*****************************************************************************************
  *  Class CmdNetSignalAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdNetSignalAdd class
@@ -52,26 +48,42 @@ class CmdNetSignalAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdNetSignalAdd(Circuit& circuit, NetClass& netclass,
-                                 const QString& name = QString(),
-                                 UndoCommand* parent = 0) throw (Exception);
+        CmdNetSignalAdd(Circuit& circuit, NetClass& netclass) noexcept;
+        CmdNetSignalAdd(Circuit& circuit, NetClass& netclass, const QString& name) noexcept;
         ~CmdNetSignalAdd() noexcept;
 
         // Getters
         NetSignal* getNetSignal() const noexcept {return mNetSignal;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
+
         Circuit& mCircuit;
         NetClass& mNetClass;
+        bool mIsAutoName;
         QString mName;
         NetSignal* mNetSignal;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDNETSIGNALADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDNETSIGNALADD_H

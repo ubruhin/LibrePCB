@@ -17,32 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICNETPOINTEDIT_H
-#define PROJECT_CMDSCHEMATICNETPOINTEDIT_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETPOINTEDIT_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETPOINTEDIT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 #include <librepcbcommon/units/point.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class SI_NetPoint;
+class SI_SymbolPin;
 class NetSignal;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicNetPointEdit
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicNetPointEdit class
@@ -52,20 +49,31 @@ class CmdSchematicNetPointEdit final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetPointEdit(SI_NetPoint& point, UndoCommand* parent = 0) throw (Exception);
+        explicit CmdSchematicNetPointEdit(SI_NetPoint& point) noexcept;
         ~CmdSchematicNetPointEdit() noexcept;
 
         // Setters
         void setNetSignal(NetSignal& netsignal) noexcept;
+        void setPinToAttach(SI_SymbolPin* pin) noexcept;
         void setPosition(const Point& pos, bool immediate) noexcept;
         void setDeltaToStartPos(const Point& deltaPos, bool immediate) noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
-
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         // Attributes from the constructor
         SI_NetPoint& mNetPoint;
@@ -73,10 +81,17 @@ class CmdSchematicNetPointEdit final : public UndoCommand
         // General Attributes
         NetSignal* mOldNetSignal;
         NetSignal* mNewNetSignal;
+        SI_SymbolPin* mOldSymbolPin;
+        SI_SymbolPin* mNewSymbolPin;
         Point mOldPos;
         Point mNewPos;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICNETPOINTEDIT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETPOINTEDIT_H

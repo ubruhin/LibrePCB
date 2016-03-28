@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "boardeditor.h"
@@ -41,7 +40,12 @@
 #include "unplacedcomponentsdock.h"
 #include "fsm/bes_fsm.h"
 #include "../projecteditor.h"
+#include "boardlayersdock.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -51,8 +55,8 @@ namespace project {
 BoardEditor::BoardEditor(ProjectEditor& projectEditor, Project& project) :
     QMainWindow(0), mProjectEditor(projectEditor), mProject(project),
     mUi(new Ui::BoardEditor),
-    mGraphicsView(nullptr), mGridProperties(nullptr), mActiveBoardIndex(-1),
-    mBoardListActionGroup(this), mErcMsgDock(nullptr), mUnplacedComponentsDock(nullptr),
+    mGraphicsView(nullptr), mActiveBoardIndex(-1), mBoardListActionGroup(this),
+    mErcMsgDock(nullptr), mUnplacedComponentsDock(nullptr), mBoardLayersDock(nullptr),
     mFsm(nullptr)
 {
     mUi->setupUi(this);
@@ -67,15 +71,16 @@ BoardEditor::BoardEditor(ProjectEditor& projectEditor, Project& project) :
     mErcMsgDock = new ErcMsgDock(mProject);
     addDockWidget(Qt::RightDockWidgetArea, mErcMsgDock, Qt::Vertical);
     mUnplacedComponentsDock = new UnplacedComponentsDock(mProjectEditor);
+    connect(mUnplacedComponentsDock, &UnplacedComponentsDock::addDeviceTriggered,
+            [this](ComponentInstance& cmp, const Uuid& dev, const Uuid& fpt)
+            {mFsm->processEvent(new BEE_StartAddDevice(cmp, dev, fpt), true);});
     addDockWidget(Qt::RightDockWidgetArea, mUnplacedComponentsDock, Qt::Vertical);
-
-    // create default grid properties
-    mGridProperties = new GridProperties();
+    mBoardLayersDock = new BoardLayersDock(*this);
+    addDockWidget(Qt::RightDockWidgetArea, mBoardLayersDock, Qt::Vertical);
 
     // add graphics view as central widget
     mGraphicsView = new GraphicsView(nullptr, this);
     mGraphicsView->setUseOpenGl(mProjectEditor.getWorkspace().getSettings().getAppearance()->getUseOpenGl());
-    mGraphicsView->setGridProperties(*mGridProperties);
     mGraphicsView->setBackgroundBrush(Qt::black);
     mGraphicsView->setForegroundBrush(Qt::white);
     //setCentralWidget(mGraphicsView);
@@ -127,30 +132,12 @@ BoardEditor::BoardEditor(ProjectEditor& projectEditor, Project& project) :
     connect(mUi->actionToolSelect, &QAction::triggered,
             [this](){mFsm->processEvent(new BEE_Base(BEE_Base::StartSelect), true);
                      mUi->actionToolSelect->setChecked(mUi->actionToolSelect->isCheckable());});
-    /*connect(mUi->actionToolMove, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartMove), true);
-                     mUi->actionToolMove->setChecked(mUi->actionToolMove->isCheckable());});
-    connect(mUi->actionToolDrawText, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawText), true);
-                     mUi->actionToolDrawText->setChecked(mUi->actionToolDrawText->isCheckable());});
-    connect(mUi->actionToolDrawRectangle, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawRect), true);
-                     mUi->actionToolDrawRectangle->setChecked(mUi->actionToolDrawRectangle->isCheckable());});
-    connect(mUi->actionToolDrawPolygon, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawPolygon), true);
-                     mUi->actionToolDrawPolygon->setChecked(mUi->actionToolDrawPolygon->isCheckable());});
-    connect(mUi->actionToolDrawCircle, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawCircle), true);
-                     mUi->actionToolDrawCircle->setChecked(mUi->actionToolDrawCircle->isCheckable());});
-    connect(mUi->actionToolDrawEllipse, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawEllipse), true);
-                     mUi->actionToolDrawEllipse->setChecked(mUi->actionToolDrawEllipse->isCheckable());});
-    connect(mUi->actionToolDrawWire, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartDrawWire), true);
-                     mUi->actionToolDrawWire->setChecked(mUi->actionToolDrawWire->isCheckable());});
-    connect(mUi->actionToolAddNetLabel, &QAction::triggered,
-            [this](){mFsm->processEvent(new BEE_Base(SEE_Base::StartAddNetLabel), true);
-                     mUi->actionToolAddNetLabel->setChecked(mUi->actionToolAddNetLabel->isCheckable());});*/
+    connect(mUi->actionToolDrawTrace, &QAction::triggered,
+            [this](){mFsm->processEvent(new BEE_Base(BEE_Base::StartDrawTrace), true);
+                     mUi->actionToolDrawTrace->setChecked(mUi->actionToolDrawTrace->isCheckable());});
+    connect(mUi->actionToolAddVia, &QAction::triggered,
+            [this](){mFsm->processEvent(new BEE_Base(BEE_Base::StartAddVia), true);
+                     mUi->actionToolAddVia->setChecked(mUi->actionToolAddVia->isCheckable());});
 
     // connect the "command" toolbar with the state machine
     connect(mUi->actionCommandAbort, &QAction::triggered,
@@ -183,8 +170,13 @@ BoardEditor::BoardEditor(ProjectEditor& projectEditor, Project& project) :
     if (mProject.getBoards().count() > 0)
         setActiveBoardIndex(0);
 
-    // mUi->graphicsView->zoomAll(); does not work properly here, should be executed later...
-    QTimer::singleShot(200, mGraphicsView, &GraphicsView::zoomAll); // ...in the event loop
+    // mGraphicsView->zoomAll(); does not work properly here, should be executed later
+    // in the event loop (ugly, but seems to work...)
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+    QTimer::singleShot(200, mGraphicsView, &GraphicsView::zoomAll);
+#else
+    QTimer::singleShot(200, mGraphicsView, SLOT(zoomAll()));
+#endif
 }
 
 BoardEditor::~BoardEditor()
@@ -196,10 +188,10 @@ BoardEditor::~BoardEditor()
 
     delete mFsm;                    mFsm = nullptr;
     qDeleteAll(mBoardListActions);  mBoardListActions.clear();
+    delete mBoardLayersDock;        mBoardLayersDock = nullptr;
     delete mUnplacedComponentsDock; mUnplacedComponentsDock = nullptr;
     delete mErcMsgDock;             mErcMsgDock = nullptr;
     delete mGraphicsView;           mGraphicsView = nullptr;
-    delete mGridProperties;         mGridProperties = nullptr;
     delete mUi;                     mUi = nullptr;
 }
 
@@ -245,11 +237,14 @@ bool BoardEditor::setActiveBoardIndex(int index) noexcept
     {
         mGraphicsView->setScene(nullptr);
     }
-    mUnplacedComponentsDock->setBoard(board);
 
     // active board has changed!
-    emit activeBoardChanged(mActiveBoardIndex, index);
+    int oldIndex = mActiveBoardIndex;
     mActiveBoardIndex = index;
+    mUnplacedComponentsDock->setBoard(board);
+    mBoardLayersDock->setActiveBoard(board);
+    mUi->tabBar->setCurrentIndex(index);
+    emit activeBoardChanged(oldIndex, index);
     return true;
 }
 
@@ -293,13 +288,22 @@ void BoardEditor::boardAdded(int newIndex)
     mUi->menuBoard->insertAction(actionBefore, newAction);
     mBoardListActions.insert(newIndex, newAction);
     mBoardListActionGroup.addAction(newAction);
+
+    mUi->tabBar->insertTab(newIndex, board->getName());
 }
 
 void BoardEditor::boardRemoved(int oldIndex)
 {
+    mUi->tabBar->removeTab(oldIndex);
     QAction* action = mBoardListActions.takeAt(oldIndex); Q_ASSERT(action);
     mBoardListActionGroup.removeAction(action);
     delete action;
+
+    if (oldIndex == mActiveBoardIndex) {
+        setActiveBoardIndex(0);
+    } else if (oldIndex < mActiveBoardIndex) {
+        mActiveBoardIndex--;
+    }
 }
 
 /*****************************************************************************************
@@ -314,14 +318,38 @@ void BoardEditor::on_actionProjectClose_triggered()
 void BoardEditor::on_actionNewBoard_triggered()
 {
     bool ok = false;
-    QString name = QInputDialog::getText(this, tr("Add board"),
-                       tr("Choose a name:"), QLineEdit::Normal, tr("default"), &ok);
+    QString name = QInputDialog::getText(this, tr("Add New Board"),
+                       tr("Choose a name:"), QLineEdit::Normal, tr("new_board"), &ok);
     if (!ok) return;
 
     try
     {
         CmdBoardAdd* cmd = new CmdBoardAdd(mProject, name);
         mProjectEditor.getUndoStack().execCmd(cmd);
+        setActiveBoardIndex(mProject.getBoardIndex(*cmd->getBoard()));
+    }
+    catch (Exception& e)
+    {
+        QMessageBox::critical(this, tr("Error"), e.getUserMsg());
+    }
+}
+
+void BoardEditor::on_actionCopyBoard_triggered()
+{
+    Board* board = getActiveBoard();
+    if (!board) return;
+
+    bool ok = false;
+    QString name = QInputDialog::getText(this, tr("Copy Board"),
+                       tr("Choose a name:"), QLineEdit::Normal,
+                       QString(tr("copy_of_%1")).arg(board->getName()), &ok);
+    if (!ok) return;
+
+    try
+    {
+        CmdBoardAdd* cmd = new CmdBoardAdd(mProject, *board, name);
+        mProjectEditor.getUndoStack().execCmd(cmd);
+        setActiveBoardIndex(mProject.getBoardIndex(*cmd->getBoard()));
     }
     catch (Exception& e)
     {
@@ -355,17 +383,19 @@ void BoardEditor::on_actionRedo_triggered()
 
 void BoardEditor::on_actionGrid_triggered()
 {
-    GridSettingsDialog dialog(*mGridProperties, this);
-    connect(&dialog, &GridSettingsDialog::gridPropertiesChanged,
-            [this](const GridProperties& grid)
-            {   *mGridProperties = grid;
-                mGraphicsView->setGridProperties(grid);
-            });
-    if (dialog.exec())
-    {
-        foreach (Board* board, mProject.getBoards())
-            board->setGridProperties(*mGridProperties);
-        //mProjectEditor.setModifiedFlag(); TODO
+    Board* board = getActiveBoard();
+    if (board) {
+        GridSettingsDialog dialog(board->getGridProperties(), this);
+        connect(&dialog, &GridSettingsDialog::gridPropertiesChanged,
+                [this](const GridProperties& grid)
+                {mGraphicsView->setGridProperties(grid);});
+        if (dialog.exec())
+        {
+            foreach (Board* board, mProject.getBoards())
+                board->setGridProperties(dialog.getGrid());
+            mGraphicsView->setGridProperties(board->getGridProperties());
+            //mProjectEditor.setModifiedFlag(); TODO
+        }
     }
 }
 
@@ -392,6 +422,11 @@ void BoardEditor::on_actionProjectProperties_triggered()
     dialog.exec();
 }
 
+void BoardEditor::on_tabBar_currentChanged(int index)
+{
+    setActiveBoardIndex(index);
+}
+
 void BoardEditor::boardListActionGroupTriggered(QAction* action)
 {
     setActiveBoardIndex(mBoardListActions.indexOf(action));
@@ -412,3 +447,4 @@ bool BoardEditor::graphicsViewEventHandler(QEvent* event)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

@@ -17,14 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WSI_PROJECTAUTOSAVEINTERVAL_H
-#define WSI_PROJECTAUTOSAVEINTERVAL_H
+#ifndef LIBREPCB_WSI_PROJECTAUTOSAVEINTERVAL_H
+#define LIBREPCB_WSI_PROJECTAUTOSAVEINTERVAL_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include "wsi_base.h"
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 /*****************************************************************************************
  *  Class WSI_ProjectAutosaveInterval
@@ -33,7 +38,7 @@
 /**
  * @brief The WSI_ProjectAutosaveInterval class represents the project autosave interval setting
  *
- * This setting is used by the class project#Project for the autosave mechanism.
+ * This setting is used by the class #project#Project for the autosave mechanism.
  * A value of zero means that the autosave mechanism is disabled! A value greater
  * than zero defines the time interval in seconds.
  *
@@ -90,4 +95,11 @@ class WSI_ProjectAutosaveInterval final : public WSI_Base
         QSpinBox* mSpinBox;
 };
 
-#endif // WSI_PROJECTAUTOSAVEINTERVAL_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_WSI_PROJECTAUTOSAVEINTERVAL_H

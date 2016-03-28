@@ -17,30 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BOARDEDITOREVENT_H
-#define PROJECT_BOARDEDITOREVENT_H
+#ifndef LIBREPCB_PROJECT_BOARDEDITOREVENT_H
+#define LIBREPCB_PROJECT_BOARDEDITOREVENT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+#include <librepcbcommon/uuid.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Project;
 class Board;
 class BoardEditor;
-}
 
 namespace Ui {
 class BoardEditor;
 }
-
-namespace project {
 
 /*****************************************************************************************
  *  Class BEE_Base
@@ -58,14 +56,15 @@ class BEE_Base
             // Triggered Actions (SEE_Base objects, no additional parameters)
             AbortCommand,       ///< abort the currently active command (esc)
             StartSelect,        ///< start command: select elements
-            StartMove,          ///< start command: move elements
-            StartDrawText,      ///< start command: draw text
-            StartDrawRect,      ///< start command: draw rect
-            StartDrawPolygon,   ///< start command: draw polygon
-            StartDrawCircle,    ///< start command: draw circle
-            StartDrawEllipse,   ///< start command: draw ellipse
-            StartDrawWire,      ///< start command: draw wire
-            StartAddNetLabel,   ///< start command: add netlabel
+            //StartMove,          ///< start command: move elements
+            //StartDrawText,      ///< start command: draw text
+            //StartDrawRect,      ///< start command: draw rect
+            //StartDrawPolygon,   ///< start command: draw polygon
+            //StartDrawCircle,    ///< start command: draw circle
+            //StartDrawEllipse,   ///< start command: draw ellipse
+            StartDrawTrace,     ///< start command: draw trace
+            StartAddVia,        ///< start command: add via
+            //StartAddNetLabel,   ///< start command: add netlabel
             Edit_Copy,          ///< copy the selected elements to clipboard (ctrl+c)
             Edit_Cut,           ///< cut the selected elements (ctrl+x)
             Edit_Paste,         ///< paste the elements from the clipboard (ctrl+v)
@@ -75,10 +74,10 @@ class BEE_Base
             Edit_FlipVertical,  ///< flip the selected elements vertical (Shift+f)
             Edit_Remove,        ///< remove the selected elements
             // Redirected QEvent's (SEE_RedirectedQEvent objects, with pointer to a QEvent)
-            GraphicsViewEvent,  ///< event from #GraphicsView @see project#SEE_RedirectedQEvent
+            GraphicsViewEvent,  ///< event from #GraphicsView @see #project#SEE_RedirectedQEvent
             // Special Events (with some additional parameters)
-            StartAddComponent,      ///< @see project#SEE_StartAddComponent
-            SwitchToSchematicPage,  ///< @see project#SEE_SwitchToSchematicPage
+            StartAddDevice,     ///< @see #project#BEE_StartAddDevice
+            //SwitchToSchematicPage,  ///< @see #project#SEE_SwitchToSchematicPage
         };
 
         // Constructors / Destructor
@@ -144,6 +143,44 @@ class BEE_RedirectedQEvent final : public BEE_Base
         QEvent* mQEvent;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  Class BEE_StartAddDevice
+ ****************************************************************************************/
 
-#endif // PROJECT_BOARDEDITOREVENT_H
+class ComponentInstance;
+
+/**
+ * @brief The BEE_StartAddDevice class
+ *
+ * @see librepcb#project#BES_AddDevice
+ */
+class BEE_StartAddDevice final : public BEE_Base
+{
+    public:
+
+        // Constructors / Destructor
+        BEE_StartAddDevice() = delete;
+        BEE_StartAddDevice(const BEE_StartAddDevice& other) = delete;
+        BEE_StartAddDevice(ComponentInstance& cmp, const Uuid& dev, const Uuid& fpt);
+        ~BEE_StartAddDevice();
+
+        // Getters
+        ComponentInstance& getComponentInstance() const noexcept {return mComponentInstance;}
+        const Uuid& getDeviceUuid() const noexcept {return mDeviceUuid;}
+        const Uuid& getFootprintUuid() const noexcept {return mFootprintUuid;}
+
+    private:
+
+        ComponentInstance& mComponentInstance;
+        Uuid mDeviceUuid;
+        Uuid mFootprintUuid;
+};
+
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BOARDEDITOREVENT_H

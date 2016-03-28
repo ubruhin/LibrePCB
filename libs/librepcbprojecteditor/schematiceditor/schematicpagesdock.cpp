@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "schematicpagesdock.h"
@@ -33,6 +32,10 @@
 #include <librepcbcommon/undostack.h>
 #include "../projecteditor.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -72,7 +75,7 @@ SchematicPagesDock::~SchematicPagesDock()
  */
 void SchematicPagesDock::resizeEvent(QResizeEvent* event)
 {
-    int iconSize = event->size().width(); // this is not good...
+    int iconSize = event->size().width() - 10; // this is not good...
     mUi->listWidget->setIconSize(QSize(iconSize, iconSize));
     QDockWidget::resizeEvent(event);
 }
@@ -135,7 +138,7 @@ void SchematicPagesDock::on_btnRemoveSchematic_clicked()
 
     try
     {
-        CmdSchematicRemove* cmd = new CmdSchematicRemove(mProject, schematic);
+        CmdSchematicRemove* cmd = new CmdSchematicRemove(mProject, *schematic);
         mEditor.getProjectEditor().getUndoStack().execCmd(cmd);
     }
     catch (Exception& e)
@@ -154,3 +157,4 @@ void SchematicPagesDock::on_listWidget_currentRowChanged(int currentRow)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

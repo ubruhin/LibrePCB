@@ -17,14 +17,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef IF_ATTRIBUTEPROVIDER_H
-#define IF_ATTRIBUTEPROVIDER_H
+#ifndef LIBREPCB_IF_ATTRIBUTEPROVIDER_H
+#define LIBREPCB_IF_ATTRIBUTEPROVIDER_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Interface IF_AttributeProvider
@@ -44,10 +48,10 @@
  * attributes, the pure virtual method #getAttributeValue() have to be implemented in all
  * classes which inherit from #IF_AttributeProvider.
  *
- * To resolve a variable like "${CMP::NAME}", the class project#GenCompInstance must
+ * To resolve a variable like "${CMP::NAME}", the class #project#ComponentInstance must
  * inherit from this interface class. The method #getAttributeValue() must be implemented
- * and should return the name of the generic component instance (like "U123") when the
- * attribute "${CMP::NAME}" was requested.
+ * and should return the name of the component instance (like "U123") when the attribute
+ * "${CMP::NAME}" was requested.
  *
  * @author ubruhin
  * @date 2015-01-10
@@ -82,8 +86,8 @@ class IF_AttributeProvider
          * @param passToParents     If true, the method #getAttributeValue() may also
          *                          call the same method of a "parent attribute provider"
          *                          class to fetch the requested attribute value (for
-         *                          example project#Project is a "parent" class of
-         *                          project#GenCompInstance).
+         *                          example #project#Project is a "parent" class of
+         *                          #project#ComponentInstance).
          *
          * @return The count of replaced variables in the text
          */
@@ -149,4 +153,10 @@ class IF_AttributeProvider
                                          int& length, QString& varNS, QString& varName) noexcept;
 };
 
-#endif // IF_ATTRIBUTEPROVIDER_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
+
+#endif // LIBREPCB_IF_ATTRIBUTEPROVIDER_H

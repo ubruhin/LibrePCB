@@ -17,32 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSCHEMATICNETLABELEDIT_H
-#define PROJECT_CMDSCHEMATICNETLABELEDIT_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETLABELEDIT_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETLABELEDIT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 #include <librepcbcommon/units/all_length_units.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class SI_NetLabel;
 class NetSignal;
-}
 
 /*****************************************************************************************
  *  Class CmdSchematicNetLabelEdit
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSchematicNetLabelEdit class
@@ -52,7 +48,7 @@ class CmdSchematicNetLabelEdit final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetLabelEdit(SI_NetLabel& netlabel, UndoCommand* parent = 0) throw (Exception);
+        explicit CmdSchematicNetLabelEdit(SI_NetLabel& netlabel) noexcept;
         ~CmdSchematicNetLabelEdit() noexcept;
 
         // Setters
@@ -62,12 +58,22 @@ class CmdSchematicNetLabelEdit final : public UndoCommand
         void setRotation(const Angle& angle, bool immediate) noexcept;
         void rotate(const Angle& angle, const Point& center, bool immediate) noexcept;
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
-
 
     private:
+
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
 
         // Attributes from the constructor
         SI_NetLabel& mNetLabel;
@@ -81,6 +87,11 @@ class CmdSchematicNetLabelEdit final : public UndoCommand
         Angle mNewRotation;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSCHEMATICNETLABELEDIT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETLABELEDIT_H

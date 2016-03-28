@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QPrinter>
@@ -28,11 +27,15 @@
 #include "../items/si_symbol.h"
 #include "../schematic.h"
 #include "../../project.h"
-#include "../../circuit/gencompinstance.h"
+#include "../../circuit/componentinstance.h"
 #include <librepcbcommon/schematiclayer.h>
 #include <librepcblibrary/sym/symbol.h>
-#include <librepcblibrary/gencmp/genericcomponent.h>
+#include <librepcblibrary/cmp/component.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -73,8 +76,11 @@ void SGI_Symbol::updateCacheAndRepaint() noexcept
     mShape.addRect(crossRect);
 
     // polygons
-    foreach (const library::SymbolPolygon* polygon, mLibSymbol.getPolygons())
+    for (int i = 0; i < mLibSymbol.getPolygonCount(); i++)
     {
+        const Polygon* polygon = mLibSymbol.getPolygon(i);
+        Q_ASSERT(polygon); if (!polygon) continue;
+
         QPainterPath polygonPath = polygon->toQPainterPathPx();
         qreal w = polygon->getWidth().toPx() / 2;
         mBoundingRect = mBoundingRect.united(polygonPath.boundingRect().adjusted(-w, -w, w, w));
@@ -83,8 +89,11 @@ void SGI_Symbol::updateCacheAndRepaint() noexcept
 
     // texts
     mCachedTextProperties.clear();
-    foreach (const library::SymbolText* text, mLibSymbol.getTexts())
+    for (int i = 0; i < mLibSymbol.getTextCount(); i++)
     {
+        const Text* text = mLibSymbol.getText(i);
+        Q_ASSERT(text); if (!text) continue;
+
         // create static text properties
         CachedTextProperties_t props;
 
@@ -147,11 +156,14 @@ void SGI_Symbol::paint(QPainter* painter, const QStyleOptionGraphicsItem* option
     const qreal lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
     // draw all polygons
-    foreach (const library::SymbolPolygon* polygon, mLibSymbol.getPolygons())
+    for (int i = 0; i < mLibSymbol.getPolygonCount(); i++)
     {
+        const Polygon* polygon = mLibSymbol.getPolygon(i);
+        Q_ASSERT(polygon); if (!polygon) continue;
+
         // set colors
         layer = getSchematicLayer(polygon->getLayerId());
-        if (!layer) {if (!layer->isVisible()) layer = nullptr;}
+        if (layer) {if (!layer->isVisible()) layer = nullptr;}
         if (layer)
             painter->setPen(QPen(layer->getColor(selected), polygon->getWidth().toPx(), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         else
@@ -170,8 +182,11 @@ void SGI_Symbol::paint(QPainter* painter, const QStyleOptionGraphicsItem* option
     }
 
     // draw all ellipses
-    foreach (const library::SymbolEllipse* ellipse, mLibSymbol.getEllipses())
+    for (int i = 0; i < mLibSymbol.getEllipseCount(); i++)
     {
+        const Ellipse* ellipse = mLibSymbol.getEllipse(i);
+        Q_ASSERT(ellipse); if (!ellipse) continue;
+
         // set colors
         layer = getSchematicLayer(ellipse->getLayerId());
         if (layer) {if (!layer->isVisible()) layer = nullptr;}
@@ -195,8 +210,11 @@ void SGI_Symbol::paint(QPainter* painter, const QStyleOptionGraphicsItem* option
     }
 
     // draw all texts
-    foreach (const library::SymbolText* text, mLibSymbol.getTexts())
+    for (int i = 0; i < mLibSymbol.getTextCount(); i++)
     {
+        const Text* text = mLibSymbol.getText(i);
+        Q_ASSERT(text); if (!text) continue;
+
         // get layer
         layer = getSchematicLayer(text->getLayerId());
         if (!layer) continue;
@@ -252,12 +270,12 @@ void SGI_Symbol::paint(QPainter* painter, const QStyleOptionGraphicsItem* option
     }
 
 #ifdef QT_DEBUG
-    layer = getSchematicLayer(SchematicLayer::LayerID::DEBUG_GenCompSymbolsCount); Q_ASSERT(layer);
+    layer = getSchematicLayer(SchematicLayer::LayerID::DEBUG_ComponentSymbolsCount); Q_ASSERT(layer);
     if (layer->isVisible())
     {
-        // show symbols count of the generic component
-        int count = mSymbol.getGenCompInstance().getPlacedSymbolsCount();
-        int maxCount = mSymbol.getGenCompInstance().getSymbolVariant().getItems().count();
+        // show symbols count of the component
+        int count = mSymbol.getComponentInstance().getPlacedSymbolsCount();
+        int maxCount = mSymbol.getComponentInstance().getSymbolVariant().getItemCount();
         mFont.setPixelSize(Length(1000000).toPx());
         painter->setFont(mFont);
         painter->setPen(QPen(layer->getColor(selected), 0, Qt::SolidLine, Qt::RoundCap));
@@ -289,3 +307,4 @@ SchematicLayer* SGI_Symbol::getSchematicLayer(int id) const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

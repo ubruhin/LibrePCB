@@ -20,64 +20,50 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetpointremove.h"
 #include "../schematic.h"
 #include "../items/si_netpoint.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdSchematicNetPointRemove::CmdSchematicNetPointRemove(Schematic& schematic,
-                                                       SI_NetPoint& netpoint,
-                                                       UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Remove netpoint"), parent),
-    mSchematic(schematic), mNetPoint(netpoint)
+CmdSchematicNetPointRemove::CmdSchematicNetPointRemove(SI_NetPoint& netpoint) noexcept :
+    UndoCommand(tr("Remove netpoint")),
+    mSchematic(netpoint.getSchematic()), mNetPoint(netpoint)
 {
 }
 
 CmdSchematicNetPointRemove::~CmdSchematicNetPointRemove() noexcept
 {
-    if (isExecuted())
-        delete &mNetPoint;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetPointRemove::redo() throw (Exception)
+bool CmdSchematicNetPointRemove::performExecute() throw (Exception)
 {
-    mSchematic.removeNetPoint(mNetPoint); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mSchematic.addNetPoint(mNetPoint);
-        throw;
-    }
+    return true;
 }
 
-void CmdSchematicNetPointRemove::undo() throw (Exception)
+void CmdSchematicNetPointRemove::performUndo() throw (Exception)
 {
-    mSchematic.addNetPoint(mNetPoint); // throws an exception on error
+    mSchematic.addNetPoint(mNetPoint); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mSchematic.removeNetPoint(mNetPoint);
-        throw;
-    }
+void CmdSchematicNetPointRemove::performRedo() throw (Exception)
+{
+    mSchematic.removeNetPoint(mNetPoint); // can throw
 }
 
 /*****************************************************************************************
@@ -85,3 +71,4 @@ void CmdSchematicNetPointRemove::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

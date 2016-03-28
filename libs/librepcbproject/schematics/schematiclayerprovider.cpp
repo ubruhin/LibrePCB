@@ -20,11 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/schematiclayer.h>
 #include "schematiclayerprovider.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -52,7 +55,7 @@ SchematicLayerProvider::SchematicLayerProvider(Project& project) throw (Exceptio
     addLayer(SchematicLayer::LayerID::DEBUG_SymbolPinNetSignalNames);
     addLayer(SchematicLayer::LayerID::DEBUG_NetLinesNetSignalNames);
     addLayer(SchematicLayer::LayerID::DEBUG_InvisibleNetPoints);
-    addLayer(SchematicLayer::LayerID::DEBUG_GenCompSymbolsCount);
+    addLayer(SchematicLayer::LayerID::DEBUG_ComponentSymbolsCount);
 #endif
 }
 
@@ -75,3 +78,4 @@ void SchematicLayerProvider::addLayer(int id) noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

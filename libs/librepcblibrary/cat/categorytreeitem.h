@@ -17,31 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBRARY_CATEGORYTREEITEM_H
-#define LIBRARY_CATEGORYTREEITEM_H
+#ifndef LIBREPCB_LIBRARY_CATEGORYTREEITEM_H
+#define LIBREPCB_LIBRARY_CATEGORYTREEITEM_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/exceptions.h>
+#include <librepcbcommon/uuid.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace library {
+
 class Library;
 class ComponentCategory;
 class PackageCategory;
-}
 
 /*****************************************************************************************
  *  Class CategoryTreeItem
  ****************************************************************************************/
-
-namespace library {
 
 /**
  * @brief The CategoryTreeItem class
@@ -52,11 +50,11 @@ class CategoryTreeItem final
 
         // Constructors / Destructor
         CategoryTreeItem(const Library& library, const QStringList localeOrder,
-                         CategoryTreeItem* parent, const QUuid& uuid) throw (Exception);
+                         CategoryTreeItem* parent, const Uuid& uuid) noexcept;
         ~CategoryTreeItem() noexcept;
 
         // Getters
-        const QUuid& getUuid()                  const noexcept {return mUuid;}
+        const Uuid& getUuid()                  const noexcept {return mUuid;}
         unsigned int getDepth()                 const noexcept {return mDepth;}
         int getColumnCount()                    const noexcept {return 1;}
         CategoryTreeItem* getParent()           const noexcept {return mParent;}
@@ -75,12 +73,18 @@ class CategoryTreeItem final
         // Attributes
         QStringList mLocaleOrder;
         CategoryTreeItem* mParent;
-        QUuid mUuid;
+        Uuid mUuid;
         ComponentCategory* mCategory;
         unsigned int mDepth; ///< this is to avoid endless recursion in the parent-child relationship
+        QString mExceptionMessage;
         QList<CategoryTreeItem*> mChilds;
 };
 
-} // namespace library
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // LIBRARY_CATEGORYTREEITEM_H
+} // namespace library
+} // namespace librepcb
+
+#endif // LIBREPCB_LIBRARY_CATEGORYTREEITEM_H

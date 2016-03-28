@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QFileDialog>
 #include "workspace.h"
@@ -35,8 +34,15 @@
 #include "settings/workspacesettings.h"
 #include <librepcbcommon/schematiclayer.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
+
 using namespace library;
 using namespace project;
+
+namespace workspace {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -229,3 +235,6 @@ FilePath Workspace::chooseWorkspacePath() noexcept
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb

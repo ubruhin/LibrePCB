@@ -17,34 +17,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_SES_SELECT_H
-#define PROJECT_SES_SELECT_H
+#ifndef LIBREPCB_PROJECT_SES_SELECT_H
+#define LIBREPCB_PROJECT_SES_SELECT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_base.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
-class UndoCommand;
+class UndoCommandGroup;
 
 namespace project {
-class CmdSymbolInstanceEdit;
-class CmdSchematicNetPointEdit;
-class CmdSchematicNetLabelEdit;
-}
+
+class CmdMoveSelectedSchematicItems;
 
 /*****************************************************************************************
  *  Class SES_Select
  ****************************************************************************************/
-
-namespace project {
-
 
 /**
  * @brief The SES_Select class (default state of the schematic editor FSM)
@@ -74,14 +69,13 @@ class SES_Select final : public SES_Base
         ProcRetVal processSubStateMoving(SEE_Base* event) noexcept;
         ProcRetVal processSubStateMovingSceneEvent(SEE_Base* event) noexcept;
         ProcRetVal proccessIdleSceneLeftClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                              Schematic* schematic) noexcept;
-        ProcRetVal proccessIdleSceneRightClick(QGraphicsSceneMouseEvent* mouseEvent,
-                                               Schematic* schematic) noexcept;
+                                              Schematic& schematic) noexcept;
+        ProcRetVal proccessIdleSceneRightMouseButtonReleased(QGraphicsSceneMouseEvent* mouseEvent,
+                                                             Schematic* schematic) noexcept;
         ProcRetVal proccessIdleSceneDoubleClick(QGraphicsSceneMouseEvent* mouseEvent,
                                                 Schematic* schematic) noexcept;
-        bool startMovingSelectedItems(Schematic* schematic) noexcept;
-        bool rotateSelectedItems(const Angle& angle, Point center = Point(0, 0),
-                                 bool centerOfElements = false) noexcept;
+        bool startMovingSelectedItems(Schematic& schematic, const Point& startPos) noexcept;
+        bool rotateSelectedItems(const Angle& angle) noexcept;
         bool removeSelectedItems() noexcept;
         bool cutSelectedItems() noexcept;
         bool copySelectedItems() noexcept;
@@ -98,14 +92,14 @@ class SES_Select final : public SES_Base
 
         // Attributes
         SubState mSubState;     ///< the current substate
-        Point mLastMouseMoveDeltaPos;   ///< used in the moving substate (mapped to grid)
-        UndoCommand* mParentCommand;    ///< the parent command for all moving commands
-                                        ///< (nullptr if no command is active)
-        QList<CmdSymbolInstanceEdit*> mSymbolEditCmds; ///< all symbol move commands
-        QList<CmdSchematicNetPointEdit*> mNetPointEditCmds; ///< all netpoint edit commands
-        QList<CmdSchematicNetLabelEdit*> mNetLabelEditCmds;
+        QScopedPointer<CmdMoveSelectedSchematicItems> mSelectedItemsMoveCommand;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_SES_SELECT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_SES_SELECT_H

@@ -20,12 +20,15 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetlabelremove.h"
 #include "../schematic.h"
 #include "../items/si_netlabel.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -33,51 +36,35 @@ namespace project {
  ****************************************************************************************/
 
 CmdSchematicNetLabelRemove::CmdSchematicNetLabelRemove(Schematic& schematic,
-                                                       SI_NetLabel& netlabel,
-                                                       UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Remove netlabel"), parent),
+                                                       SI_NetLabel& netlabel) noexcept :
+    UndoCommand(tr("Remove netlabel")),
     mSchematic(schematic), mNetLabel(netlabel)
 {
 }
 
 CmdSchematicNetLabelRemove::~CmdSchematicNetLabelRemove() noexcept
 {
-    if (isExecuted())
-        delete &mNetLabel;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetLabelRemove::redo() throw (Exception)
+bool CmdSchematicNetLabelRemove::performExecute() throw (Exception)
 {
-    mSchematic.removeNetLabel(mNetLabel); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mSchematic.addNetLabel(mNetLabel);
-        throw;
-    }
+    return true;
 }
 
-void CmdSchematicNetLabelRemove::undo() throw (Exception)
+void CmdSchematicNetLabelRemove::performUndo() throw (Exception)
 {
-    mSchematic.addNetLabel(mNetLabel); // throws an exception on error
+    mSchematic.addNetLabel(mNetLabel); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo(); // throws an exception on error
-    }
-    catch (Exception& e)
-    {
-        mSchematic.removeNetLabel(mNetLabel);
-        throw;
-    }
+void CmdSchematicNetLabelRemove::performRedo() throw (Exception)
+{
+    mSchematic.removeNetLabel(mNetLabel); // can throw
 }
 
 /*****************************************************************************************
@@ -85,3 +72,4 @@ void CmdSchematicNetLabelRemove::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

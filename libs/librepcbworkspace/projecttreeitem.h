@@ -17,15 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECTTREEITEM_H
-#define PROJECTTREEITEM_H
+#ifndef LIBREPCB_PROJECTTREEITEM_H
+#define LIBREPCB_PROJECTTREEITEM_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/fileio/filepath.h>
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 /*****************************************************************************************
  *  Class ProjectTreeItem
@@ -80,4 +85,11 @@ class ProjectTreeItem
         QList<ProjectTreeItem*> mChilds;
 };
 
-#endif // PROJECTTREEITEM_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECTTREEITEM_H

@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QPrinter>
@@ -28,10 +27,15 @@
 #include "../items/bi_footprint.h"
 #include "../board.h"
 #include "../../project.h"
-#include <librepcblibrary/fpt/footprint.h>
+#include <librepcblibrary/pkg/footprint.h>
 #include <librepcbcommon/boardlayer.h>
-#include "../componentinstance.h"
+#include "../items/bi_device.h"
+#include "../boardlayerstack.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -53,16 +57,26 @@ BGI_Footprint::~BGI_Footprint() noexcept
 }
 
 /*****************************************************************************************
+ *  Getters
+ ****************************************************************************************/
+
+bool BGI_Footprint::isSelectable() const noexcept
+{
+    BoardLayer* layer = getBoardLayer(BoardLayer::TopDeviceOriginCrosses);
+    return layer && layer->isVisible();
+}
+
+/*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
 
 void BGI_Footprint::updateCacheAndRepaint() noexcept
 {
+    BoardLayer* layer = nullptr;
     prepareGeometryChange();
 
     mBoundingRect = QRectF();
     mShape = QPainterPath();
-    mShape.setFillRule(Qt::WindingFill);
 
     // set Z value
     if (mFootprint.getIsMirrored())
@@ -71,23 +85,43 @@ void BGI_Footprint::updateCacheAndRepaint() noexcept
         setZValue(Board::ZValue_FootprintsTop);
 
     // cross rect
-    QRectF crossRect(-4, -4, 8, 8);
-    mBoundingRect = mBoundingRect.united(crossRect);
-    mShape.addRect(crossRect);
+    layer = getBoardLayer(BoardLayer::LayerID::TopDeviceOriginCrosses);
+    if (layer) {
+        if (layer->isVisible()) {
+            qreal width = Length(700000).toPx();
+            QRectF crossRect(-width, -width, 2*width, 2*width);
+            mBoundingRect = mBoundingRect.united(crossRect);
+            mShape.addRect(crossRect);
+        }
+    }
 
     // polygons
-    foreach (const library::FootprintPolygon* polygon, mLibFootprint.getPolygons())
-    {
+    for (int i = 0; i < mLibFootprint.getPolygonCount(); i++) {
+        const Polygon* polygon = mLibFootprint.getPolygon(i);
+        Q_ASSERT(polygon); if (!polygon) continue;
+        layer = getBoardLayer(polygon->getLayerId());
+        if (!layer) continue;
+        if (!layer->isVisible()) continue;
+
         QPainterPath polygonPath = polygon->toQPainterPathPx();
         qreal w = polygon->getWidth().toPx() / 2;
         mBoundingRect = mBoundingRect.united(polygonPath.boundingRect().adjusted(-w, -w, w, w));
-        if (polygon->isGrabArea()) mShape = mShape.united(polygonPath);
+        if (!polygon->isGrabArea()) continue;
+        layer = getBoardLayer(BoardLayer::LayerID::TopDeviceGrabAreas);
+        if (!layer) continue;
+        if (!layer->isVisible()) continue;
+        mShape = mShape.united(polygonPath);
     }
 
     // texts
     mCachedTextProperties.clear();
-    foreach (const library::FootprintText* text, mLibFootprint.getTexts())
-    {
+    for (int i = 0; i < mLibFootprint.getTextCount(); i++) {
+        const Text* text = mLibFootprint.getText(i);
+        Q_ASSERT(text); if (!text) continue;
+        layer = getBoardLayer(text->getLayerId());
+        if (!layer) continue;
+        if (!layer->isVisible()) continue;
+
         // create static text properties
         CachedTextProperties_t props;
 
@@ -133,6 +167,11 @@ void BGI_Footprint::updateCacheAndRepaint() noexcept
         mCachedTextProperties.insert(text, props);
     }
 
+    if (!mShape.isEmpty())
+        mShape.setFillRule(Qt::WindingFill);
+
+    setVisible(!mBoundingRect.isEmpty());
+
     update();
 }
 
@@ -150,46 +189,74 @@ void BGI_Footprint::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     const qreal lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
     // draw all polygons
-    foreach (const library::FootprintPolygon* polygon, mLibFootprint.getPolygons())
-    {
-        // set colors
+    int polygonCount = mLibFootprint.getPolygonCount();
+    for (int i = 0; i < polygonCount; i++) {
+        const Polygon* polygon = mLibFootprint.getPolygon(i);
+        Q_ASSERT(polygon); if (!polygon) continue;
+
+        // get layer
         layer = getBoardLayer(polygon->getLayerId());
-        if (layer) {if (!layer->isVisible()) layer = nullptr;}
-        if (layer)
+        if (!layer) continue;
+        if (!layer->isVisible()) continue;
+
+        // set pen
+        if (polygon->getWidth() > 0)
             painter->setPen(QPen(layer->getColor(selected), polygon->getWidth().toPx(), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         else
             painter->setPen(Qt::NoPen);
-        if (polygon->isFilled())
-            layer = getBoardLayer(polygon->getLayerId());
-        else if (polygon->isGrabArea())
-            layer = getBoardLayer(BoardLayer::LayerID::FootprintGrabAreas);
-        else
-            layer = nullptr;
-        if (layer) {if (!layer->isVisible()) layer = nullptr;}
-        painter->setBrush(layer ? QBrush(layer->getColor(selected), Qt::SolidPattern) : Qt::NoBrush);
+
+        // set brush
+        if (!polygon->isFilled()) {
+            if (polygon->isGrabArea())
+                layer = getBoardLayer(BoardLayer::LayerID::TopDeviceGrabAreas);
+            else
+                layer = nullptr;
+        }
+        if (layer) {
+            if (layer->isVisible())
+                painter->setBrush(QBrush(layer->getColor(selected), Qt::SolidPattern));
+            else
+                painter->setBrush(Qt::NoBrush);
+        } else {
+            painter->setBrush(Qt::NoBrush);
+        }
 
         // draw polygon
         painter->drawPath(polygon->toQPainterPathPx());
     }
 
     // draw all ellipses
-    foreach (const library::FootprintEllipse* ellipse, mLibFootprint.getEllipses())
-    {
-        // set colors
+    int ellipseCount = mLibFootprint.getEllipseCount();
+    for (int i = 0; i < ellipseCount; i++) {
+        const Ellipse* ellipse = mLibFootprint.getEllipse(i);
+        Q_ASSERT(ellipse); if (!ellipse) continue;
+
+        // get layer
         layer = getBoardLayer(ellipse->getLayerId());
-        if (layer) {if (!layer->isVisible()) layer = nullptr;}
-        if (layer)
+        if (!layer) continue;
+        if (!layer->isVisible()) continue;
+
+        // set pen
+        if (ellipse->getLineWidth() > 0)
             painter->setPen(QPen(layer->getColor(selected), ellipse->getLineWidth().toPx(), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         else
             painter->setPen(Qt::NoPen);
-        if (ellipse->isFilled())
-            layer = getBoardLayer(ellipse->getLayerId());
-        else if (ellipse->isGrabArea())
-            layer = getBoardLayer(BoardLayer::LayerID::FootprintGrabAreas);
-        else
-            layer = nullptr;
-        if (layer) {if (!layer->isVisible()) layer = nullptr;}
-        painter->setBrush(layer ? QBrush(layer->getColor(selected), Qt::SolidPattern) : Qt::NoBrush);
+
+        // set brush
+        if (!ellipse->isFilled()) {
+            if (ellipse->isGrabArea())
+                layer = getBoardLayer(BoardLayer::LayerID::TopDeviceGrabAreas);
+            else
+                layer = nullptr;
+        }
+        if (layer) {
+            if (layer->isVisible())
+                painter->setBrush(QBrush(layer->getColor(selected), Qt::SolidPattern));
+            else
+                painter->setBrush(Qt::NoBrush);
+        } else {
+            painter->setBrush(Qt::NoBrush);
+        }
 
         // draw ellipse
         painter->drawEllipse(ellipse->getCenter().toPxQPointF(), ellipse->getRadiusX().toPx(),
@@ -198,8 +265,11 @@ void BGI_Footprint::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
     }
 
     // draw all texts
-    foreach (const library::FootprintText* text, mLibFootprint.getTexts())
-    {
+    int textCount = mLibFootprint.getTextCount();
+    for (int i = 0; i < textCount; i++) {
+        const Text* text = mLibFootprint.getText(i);
+        Q_ASSERT(text); if (!text) continue;
+
         // get layer
         layer = getBoardLayer(text->getLayerId());
         if (!layer) continue;
@@ -229,39 +299,39 @@ void BGI_Footprint::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
             painter->fillRect(props.textRect, QBrush(layer->getColor(selected), Qt::Dense5Pattern));
         }
 #ifdef QT_DEBUG
-        layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsTextsBoundingRect); Q_ASSERT(layer);
-        if (layer->isVisible())
-        {
-            // draw text bounding rect
-            painter->setPen(QPen(layer->getColor(selected), 0));
-            painter->setBrush(Qt::NoBrush);
-            painter->drawRect(props.textRect);
+        layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsTextsBoundingRects);
+        if (layer) {
+            if (layer->isVisible()) {
+                // draw text bounding rect
+                painter->setPen(QPen(layer->getColor(selected), 0));
+                painter->setBrush(Qt::NoBrush);
+                painter->drawRect(props.textRect);
+            }
         }
 #endif
         painter->restore();
     }
 
     // draw origin cross
-    if (!deviceIsPrinter)
-    {
-        layer = getBoardLayer(BoardLayer::OriginCrosses);
-        if (layer)
-        {
+    layer = getBoardLayer(BoardLayer::TopDeviceOriginCrosses);
+    if (layer) {
+        if ((!deviceIsPrinter) && layer->isVisible()) {
             qreal width = Length(700000).toPx();
             painter->setPen(QPen(layer->getColor(selected), 0));
-            painter->drawLine(-2*width, 0, 2*width, 0);
-            painter->drawLine(0, -2*width, 0, 2*width);
+            painter->drawLine(-width, 0, width, 0);
+            painter->drawLine(0, -width, 0, width);
         }
     }
 
 #ifdef QT_DEBUG
-    layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsBoundingRect); Q_ASSERT(layer);
-    if (layer->isVisible())
-    {
-        // draw bounding rect
-        painter->setPen(QPen(layer->getColor(selected), 0));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRect(mBoundingRect);
+    // draw bounding rect
+    layer = getBoardLayer(BoardLayer::LayerID::DEBUG_GraphicsItemsBoundingRects);
+    if (layer) {
+        if (layer->isVisible()) {
+            painter->setPen(QPen(layer->getColor(selected), 0));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(mBoundingRect);
+        }
     }
 #endif
 }
@@ -273,7 +343,7 @@ void BGI_Footprint::paint(QPainter* painter, const QStyleOptionGraphicsItem* opt
 BoardLayer* BGI_Footprint::getBoardLayer(int id) const noexcept
 {
     if (mFootprint.getIsMirrored()) id = BoardLayer::getMirroredLayerId(id);
-    return mFootprint.getComponentInstance().getBoard().getProject().getBoardLayer(id);
+    return mFootprint.getDeviceInstance().getBoard().getLayerStack().getBoardLayer(id);
 }
 
 /*****************************************************************************************
@@ -281,3 +351,4 @@ BoardLayer* BGI_Footprint::getBoardLayer(int id) const noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

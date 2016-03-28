@@ -17,18 +17,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef IF_BOARDLAYERPROVIDER_H
-#define IF_BOARDLAYERPROVIDER_H
+#ifndef LIBREPCB_IF_BOARDLAYERPROVIDER_H
+#define LIBREPCB_IF_BOARDLAYERPROVIDER_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class BoardLayer;
 
@@ -63,6 +63,13 @@ class IF_BoardLayerProvider
         // Getters
 
         /**
+         * @brief Get all available board layer IDs
+         *
+         * @return A QList with all board layer IDs
+         */
+        virtual QList<int> getAllBoardLayerIds() const noexcept = 0;
+
+        /**
          * @brief Get the board layer with a specific ID
          *
          * @param id                The ID of the requested board layer
@@ -80,5 +87,11 @@ class IF_BoardLayerProvider
         IF_BoardLayerProvider& operator=(const IF_BoardLayerProvider& rhs) = delete;
 };
 
-#endif // IF_BOARDLAYERPROVIDER_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
+
+#endif // LIBREPCB_IF_BOARDLAYERPROVIDER_H
 

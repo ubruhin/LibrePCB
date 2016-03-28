@@ -20,65 +20,88 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "netsignal.h"
 #include "netclass.h"
 #include <librepcbcommon/exceptions.h>
 #include "circuit.h"
 #include "../erc/ercmsg.h"
-#include "gencompsignalinstance.h"
+#include "componentsignalinstance.h"
 #include <librepcbcommon/fileio/xmldomelement.h>
 #include "../schematics/items/si_netlabel.h"
+#include "../schematics/items/si_netpoint.h"
+#include "../boards/items/bi_netpoint.h"
+#include "../boards/items/bi_via.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
-NetSignal::NetSignal(const Circuit& circuit,
-                     const XmlDomElement& domElement) throw (Exception) :
-    mCircuit(circuit), mAddedToCircuit(false), mErcMsgUnusedNetSignal(nullptr),
-    mErcMsgConnectedToLessThanTwoPins(nullptr), mGenCompSignalWithForcedNameCount(0),
-    // load attributes
-    mUuid(domElement.getAttribute<QUuid>("uuid")),
-    mName(domElement.getAttribute("name", true)),
-    mHasAutoName(domElement.getAttribute<bool>("auto_name")),
-    mNetClass(circuit.getNetClassByUuid(domElement.getAttribute<QUuid>("netclass")))
+NetSignal::NetSignal(Circuit& circuit, const XmlDomElement& domElement) throw (Exception) :
+    QObject(&circuit), mCircuit(circuit), mIsAddedToCircuit(false), mIsHighlighted(false)
 {
-    if (!mNetClass)
-    {
-        throw RuntimeError(__FILE__, __LINE__, domElement.getAttribute("netclass"),
+    mUuid = domElement.getAttribute<Uuid>("uuid", true);
+    mName = domElement.getAttribute<QString>("name", true);
+    mHasAutoName = domElement.getAttribute<bool>("auto_name", true);
+    Uuid netclassUuid = domElement.getAttribute<Uuid>("netclass", true);
+    mNetClass = circuit.getNetClassByUuid(netclassUuid);
+    if (!mNetClass) {
+        throw RuntimeError(__FILE__, __LINE__, QString(),
             QString(tr("Invalid netclass UUID: \"%1\""))
-            .arg(domElement.getAttribute("netclass")));
+            .arg(netclassUuid.toStr()));
     }
 
     if (!checkAttributesValidity()) throw LogicError(__FILE__, __LINE__);
 }
 
-NetSignal::NetSignal(const Circuit& circuit, NetClass& netclass,
-                     const QString& name, bool autoName) throw (Exception) :
-    mCircuit(circuit), mAddedToCircuit(false), mErcMsgUnusedNetSignal(nullptr),
-    mErcMsgConnectedToLessThanTwoPins(nullptr), mGenCompSignalWithForcedNameCount(0),
-    // load default attributes
-    mUuid(QUuid::createUuid()), // generate random UUID
-    mName(name),
-    mHasAutoName(autoName),
-    mNetClass(&netclass)
+NetSignal::NetSignal(Circuit& circuit, NetClass& netclass, const QString& name,
+                     bool autoName) throw (Exception) :
+    QObject(&circuit), mCircuit(circuit), mIsAddedToCircuit(false), mIsHighlighted(false),
+    mUuid(Uuid::createRandom()), mName(name), mHasAutoName(autoName), mNetClass(&netclass)
 {
     if (!checkAttributesValidity()) throw LogicError(__FILE__, __LINE__);
 }
 
 NetSignal::~NetSignal() noexcept
 {
-    Q_ASSERT(mAddedToCircuit == false);
-    Q_ASSERT(mErcMsgUnusedNetSignal == nullptr);
-    Q_ASSERT(mErcMsgConnectedToLessThanTwoPins == nullptr);
-    Q_ASSERT(mGenCompSignals.isEmpty() == true);
-    Q_ASSERT(mSchematicNetPoints.isEmpty() == true);
-    Q_ASSERT(mSchematicNetLabels.isEmpty() == true);
-    Q_ASSERT(mGenCompSignalWithForcedNameCount == 0);
+    Q_ASSERT(!mIsAddedToCircuit);
+    Q_ASSERT(!isUsed());
+}
+
+/*****************************************************************************************
+ *  Getters: General
+ ****************************************************************************************/
+
+int NetSignal::getRegisteredElementsCount() const noexcept
+{
+    int count = 0;
+    count += mRegisteredComponentSignals.count();
+    count += mRegisteredSchematicNetPoints.count();
+    count += mRegisteredSchematicNetLabels.count();
+    count += mRegisteredBoardNetPoints.count();
+    count += mRegisteredBoardVias.count();
+    return count;
+}
+
+bool NetSignal::isUsed() const noexcept
+{
+    return (getRegisteredElementsCount() > 0);
+}
+
+bool NetSignal::isNameForced() const noexcept
+{
+    foreach (const ComponentSignalInstance* cmp, mRegisteredComponentSignals) {
+        if (cmp->isNetSignalNameForced()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /*****************************************************************************************
@@ -87,97 +110,153 @@ NetSignal::~NetSignal() noexcept
 
 void NetSignal::setName(const QString& name, bool isAutoName) throw (Exception)
 {
-    if ((name == mName) && (isAutoName == mHasAutoName)) return;
-    // the name must not be empty!
-    if(name.isEmpty())
-    {
+    if ((name == mName) && (isAutoName == mHasAutoName)) {
+        return;
+    }
+    if(name.isEmpty()) {
         throw RuntimeError(__FILE__, __LINE__, QString(),
             tr("The new netsignal name must not be empty!"));
     }
     mName = name;
     mHasAutoName = isAutoName;
     updateErcMessages();
+    emit nameChanged(mName);
+}
 
-    foreach (SI_NetLabel* label, mSchematicNetLabels)
-        label->updateText();
+void NetSignal::setHighlighted(bool hl) noexcept
+{
+    if (hl != mIsHighlighted) {
+        mIsHighlighted = hl;
+        emit highlightedChanged(mIsHighlighted);
+    }
 }
 
 /*****************************************************************************************
  *  General Methods
  ****************************************************************************************/
 
-void NetSignal::registerGenCompSignal(GenCompSignalInstance& signal) noexcept
+void NetSignal::addToCircuit() throw (Exception)
 {
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mGenCompSignals.contains(&signal) == false);
-    mGenCompSignals.append(&signal);
-    if (signal.isNetSignalNameForced())
-        mGenCompSignalWithForcedNameCount++;
-    updateErcMessages();
-}
-
-void NetSignal::unregisterGenCompSignal(GenCompSignalInstance& signal) noexcept
-{
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mGenCompSignals.contains(&signal) == true);
-    mGenCompSignals.removeOne(&signal);
-    if (signal.isNetSignalNameForced())
-    {
-        Q_ASSERT(mGenCompSignalWithForcedNameCount > 0);
-        mGenCompSignalWithForcedNameCount--;
+    if (mIsAddedToCircuit || isUsed()) {
+        throw LogicError(__FILE__, __LINE__);
     }
+    mNetClass->registerNetSignal(*this); // can throw
+    mIsAddedToCircuit = true;
     updateErcMessages();
 }
 
-void NetSignal::registerSchematicNetPoint(SI_NetPoint& netpoint) noexcept
+void NetSignal::removeFromCircuit() throw (Exception)
 {
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mSchematicNetPoints.contains(&netpoint) == false);
-    mSchematicNetPoints.append(&netpoint);
+    if (!mIsAddedToCircuit) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    if (isUsed()) {
+        throw RuntimeError(__FILE__, __LINE__, QString(),
+            QString(tr("The net signal \"%1\" cannot be removed because it is still in use!"))
+            .arg(mName));
+    }
+    mNetClass->unregisterNetSignal(*this); // can throw
+    mIsAddedToCircuit = false;
     updateErcMessages();
 }
 
-void NetSignal::unregisterSchematicNetPoint(SI_NetPoint& netpoint) noexcept
+void NetSignal::registerComponentSignal(ComponentSignalInstance& signal) throw (Exception)
 {
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mSchematicNetPoints.contains(&netpoint) == true);
-    mSchematicNetPoints.removeOne(&netpoint);
+    if ((!mIsAddedToCircuit) || (mRegisteredComponentSignals.contains(&signal))
+        || (signal.getCircuit() != mCircuit))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredComponentSignals.append(&signal);
     updateErcMessages();
 }
 
-void NetSignal::registerSchematicNetLabel(SI_NetLabel& netlabel) noexcept
+void NetSignal::unregisterComponentSignal(ComponentSignalInstance& signal) throw (Exception)
 {
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mSchematicNetLabels.contains(&netlabel) == false);
-    mSchematicNetLabels.append(&netlabel);
-}
-
-void NetSignal::unregisterSchematicNetLabel(SI_NetLabel& netlabel) noexcept
-{
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mSchematicNetLabels.contains(&netlabel) == true);
-    mSchematicNetLabels.removeOne(&netlabel);
-}
-
-void NetSignal::addToCircuit() noexcept
-{
-    Q_ASSERT(mAddedToCircuit == false);
-    Q_ASSERT(mGenCompSignals.isEmpty() == true);
-    Q_ASSERT(mSchematicNetPoints.isEmpty() == true);
-    Q_ASSERT(mSchematicNetLabels.isEmpty() == true);
-    mAddedToCircuit = true;
-    mNetClass->registerNetSignal(*this);
+    if ((!mIsAddedToCircuit) || (!mRegisteredComponentSignals.contains(&signal))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredComponentSignals.removeOne(&signal);
     updateErcMessages();
 }
 
-void NetSignal::removeFromCircuit() noexcept
+void NetSignal::registerSchematicNetPoint(SI_NetPoint& netpoint) throw (Exception)
 {
-    Q_ASSERT(mAddedToCircuit == true);
-    Q_ASSERT(mGenCompSignals.isEmpty() == true);
-    Q_ASSERT(mSchematicNetPoints.isEmpty() == true);
-    Q_ASSERT(mSchematicNetLabels.isEmpty() == true);
-    mAddedToCircuit = false;
-    mNetClass->unregisterNetSignal(*this);
+    if ((!mIsAddedToCircuit) || (mRegisteredSchematicNetPoints.contains(&netpoint))
+        || (netpoint.getCircuit() != mCircuit))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredSchematicNetPoints.append(&netpoint);
+    updateErcMessages();
+}
+
+void NetSignal::unregisterSchematicNetPoint(SI_NetPoint& netpoint) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (!mRegisteredSchematicNetPoints.contains(&netpoint))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredSchematicNetPoints.removeOne(&netpoint);
+    updateErcMessages();
+}
+
+void NetSignal::registerSchematicNetLabel(SI_NetLabel& netlabel) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (mRegisteredSchematicNetLabels.contains(&netlabel))
+        || (netlabel.getCircuit() != mCircuit))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredSchematicNetLabels.append(&netlabel);
+    updateErcMessages();
+}
+
+void NetSignal::unregisterSchematicNetLabel(SI_NetLabel& netlabel) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (!mRegisteredSchematicNetLabels.contains(&netlabel))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredSchematicNetLabels.removeOne(&netlabel);
+    updateErcMessages();
+}
+
+void NetSignal::registerBoardNetPoint(BI_NetPoint& netpoint) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (mRegisteredBoardNetPoints.contains(&netpoint))
+        || (netpoint.getCircuit() != mCircuit))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredBoardNetPoints.append(&netpoint);
+    updateErcMessages();
+}
+
+void NetSignal::unregisterBoardNetPoint(BI_NetPoint& netpoint) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (!mRegisteredBoardNetPoints.contains(&netpoint))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredBoardNetPoints.removeOne(&netpoint);
+    updateErcMessages();
+}
+
+void NetSignal::registerBoardVia(BI_Via& via) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (mRegisteredBoardVias.contains(&via))
+        || (via.getCircuit() != mCircuit))
+    {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredBoardVias.append(&via);
+    updateErcMessages();
+}
+
+void NetSignal::unregisterBoardVia(BI_Via& via) throw (Exception)
+{
+    if ((!mIsAddedToCircuit) || (!mRegisteredBoardVias.contains(&via))) {
+        throw LogicError(__FILE__, __LINE__);
+    }
+    mRegisteredBoardVias.removeOne(&via);
     updateErcMessages();
 }
 
@@ -207,37 +286,29 @@ bool NetSignal::checkAttributesValidity() const noexcept
 
 void NetSignal::updateErcMessages() noexcept
 {
-    if (mAddedToCircuit && mGenCompSignals.isEmpty() && mSchematicNetPoints.isEmpty())
-    {
-        if (!mErcMsgUnusedNetSignal)
-        {
-            mErcMsgUnusedNetSignal = new ErcMsg(mCircuit.getProject(), *this,
-                mUuid.toString(), "Unused", ErcMsg::ErcMsgType_t::CircuitError, QString());
+    if (mIsAddedToCircuit && (!isUsed())) {
+        if (!mErcMsgUnusedNetSignal) {
+            mErcMsgUnusedNetSignal.reset(new ErcMsg(mCircuit.getProject(), *this,
+                mUuid.toStr(), "Unused", ErcMsg::ErcMsgType_t::CircuitError, QString()));
         }
         mErcMsgUnusedNetSignal->setMsg(QString(tr("Unused net signal: \"%1\"")).arg(mName));
         mErcMsgUnusedNetSignal->setVisible(true);
     }
-    else if (mErcMsgUnusedNetSignal)
-    {
-        delete mErcMsgUnusedNetSignal;
-        mErcMsgUnusedNetSignal = nullptr;
+    else if (mErcMsgUnusedNetSignal) {
+        mErcMsgUnusedNetSignal.reset();
     }
 
-    if (mAddedToCircuit && (mGenCompSignals.count() < 2))
-    {
-        if (!mErcMsgConnectedToLessThanTwoPins)
-        {
-            mErcMsgConnectedToLessThanTwoPins = new ErcMsg(mCircuit.getProject(), *this,
-                mUuid.toString(), "ConnectedToLessThanTwoPins", ErcMsg::ErcMsgType_t::CircuitWarning);
+    if (mIsAddedToCircuit && (mRegisteredComponentSignals.count() < 2)) {
+        if (!mErcMsgConnectedToLessThanTwoPins) {
+            mErcMsgConnectedToLessThanTwoPins.reset(new ErcMsg(mCircuit.getProject(), *this,
+                mUuid.toStr(), "ConnectedToLessThanTwoPins", ErcMsg::ErcMsgType_t::CircuitWarning));
         }
         mErcMsgConnectedToLessThanTwoPins->setMsg(
             QString(tr("Net signal connected to less than two pins: \"%1\"")).arg(mName));
         mErcMsgConnectedToLessThanTwoPins->setVisible(true);
     }
-    else if (mErcMsgConnectedToLessThanTwoPins)
-    {
-        delete mErcMsgConnectedToLessThanTwoPins;
-        mErcMsgConnectedToLessThanTwoPins = nullptr;
+    else if (mErcMsgConnectedToLessThanTwoPins) {
+        mErcMsgConnectedToLessThanTwoPins.reset();
     }
 }
 
@@ -246,3 +317,4 @@ void NetSignal::updateErcMessages() noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

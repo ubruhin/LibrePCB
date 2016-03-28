@@ -20,13 +20,16 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "categorytreemodel.h"
 #include "../library.h"
 #include "categorytreeitem.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace library {
 
 /*****************************************************************************************
@@ -36,7 +39,7 @@ namespace library {
 CategoryTreeModel::CategoryTreeModel(const Library& library, const QStringList& localeOrder) noexcept :
     QAbstractItemModel(nullptr)
 {
-    mRootItem = new CategoryTreeItem(library, localeOrder, nullptr, QUuid());
+    mRootItem = new CategoryTreeItem(library, localeOrder, nullptr, Uuid());
 }
 
 CategoryTreeModel::~CategoryTreeModel() noexcept
@@ -127,3 +130,4 @@ CategoryTreeItem* CategoryTreeModel::getItem(const QModelIndex& index) const
  ****************************************************************************************/
 
 } // namespace library
+} // namespace librepcb

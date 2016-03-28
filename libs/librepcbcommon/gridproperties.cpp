@@ -20,10 +20,14 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "gridproperties.h"
 #include "fileio/xmldomelement.h"
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -36,9 +40,9 @@ GridProperties::GridProperties() noexcept :
 
 GridProperties::GridProperties(const XmlDomElement& domElement) noexcept
 {
-    mType = stringToType(domElement.getAttribute("type", true));
+    mType = stringToType(domElement.getAttribute<QString>("type", true));
     mInterval = domElement.getAttribute<Length>("interval", true);
-    mUnit = LengthUnit::fromString(domElement.getAttribute("unit", true));
+    mUnit = domElement.getAttribute<LengthUnit>("unit", true);
 }
 
 GridProperties::GridProperties(Type_t type, const Length& interval, const LengthUnit& unit) noexcept :
@@ -65,8 +69,8 @@ XmlDomElement* GridProperties::serializeToXmlDomElement() const throw (Exception
 
     QScopedPointer<XmlDomElement> root(new XmlDomElement("grid_properties"));
     root->setAttribute("type", typeToString(mType));
-    root->setAttribute("interval", mInterval.toMmString());
-    root->setAttribute("unit", mUnit.toString());
+    root->setAttribute("interval", mInterval);
+    root->setAttribute("unit", mUnit);
     return root.take();
 }
 
@@ -117,3 +121,5 @@ QString GridProperties::typeToString(Type_t type) throw (Exception)
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

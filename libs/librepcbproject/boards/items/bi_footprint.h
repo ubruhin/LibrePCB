@@ -17,13 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BI_FOOTPRINT_H
-#define PROJECT_BI_FOOTPRINT_H
+#ifndef LIBREPCB_PROJECT_BI_FOOTPRINT_H
+#define LIBREPCB_PROJECT_BI_FOOTPRINT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "bi_base.h"
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
@@ -31,24 +30,23 @@
 #include "../graphicsitems/bgi_footprint.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
-namespace project {
-class Board;
-class ComponentInstance;
-class BI_FootprintPad;
-}
+namespace librepcb {
 
 namespace library {
 class Footprint;
 }
 
+namespace project {
+
+class Board;
+class BI_Device;
+class BI_FootprintPad;
+
 /*****************************************************************************************
  *  Class BI_Footprint
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The BI_Footprint class
@@ -64,22 +62,26 @@ class BI_Footprint final : public BI_Base, public IF_XmlSerializableObject,
     public:
 
         // Constructors / Destructor
-        explicit BI_Footprint(ComponentInstance& component, const XmlDomElement& domElement) throw (Exception);
-        explicit BI_Footprint(ComponentInstance& component) throw (Exception);
+        BI_Footprint() = delete;
+        BI_Footprint(const BI_Footprint& other) = delete;
+        BI_Footprint(BI_Device& device, const BI_Footprint& other) throw (Exception);
+        BI_Footprint(BI_Device& device, const XmlDomElement& domElement) throw (Exception);
+        explicit BI_Footprint(BI_Device& device) throw (Exception);
         ~BI_Footprint() noexcept;
 
         // Getters
-        Project& getProject() const noexcept;
-        Board& getBoard() const noexcept;
-        ComponentInstance& getComponentInstance() const noexcept {return mComponentInstance;}
-        BI_FootprintPad* getPad(const QUuid& padUuid) const noexcept {return mPads.value(padUuid);}
-        const QHash<QUuid, BI_FootprintPad*>& getPads() const noexcept {return mPads;}
-        const library::Footprint& getLibFootprint() const noexcept {return *mFootprint;}
+        const Uuid& getComponentInstanceUuid() const noexcept;
+        BI_Device& getDeviceInstance() const noexcept {return mDevice;}
+        BI_FootprintPad* getPad(const Uuid& padUuid) const noexcept {return mPads.value(padUuid);}
+        const QHash<Uuid, BI_FootprintPad*>& getPads() const noexcept {return mPads;}
+        const library::Footprint& getLibFootprint() const noexcept;
         const Angle& getRotation() const noexcept;
+        bool isSelectable() const noexcept override;
+        bool isUsed() const noexcept;
 
         // General Methods
-        void addToBoard(GraphicsScene& scene) throw (Exception);
-        void removeFromBoard(GraphicsScene& scene) throw (Exception);
+        void addToBoard(GraphicsScene& scene) throw (Exception) override;
+        void removeFromBoard(GraphicsScene& scene) throw (Exception) override;
 
         /// @copydoc IF_XmlSerializableObject#serializeToXmlDomElement()
         XmlDomElement* serializeToXmlDomElement() const throw (Exception) override;
@@ -96,13 +98,16 @@ class BI_Footprint final : public BI_Base, public IF_XmlSerializableObject,
         QPainterPath getGrabAreaScenePx() const noexcept override;
         void setSelected(bool selected) noexcept override;
 
+        // Operator Overloadings
+        BI_Footprint& operator=(const BI_Footprint& rhs) = delete;
+
 
     private slots:
 
-        void componentInstanceAttributesChanged();
-        void componentInstanceMoved(const Point& pos);
-        void componentInstanceRotated(const Angle& rot);
-        void componentInstanceMirrored(bool mirrored);
+        void deviceInstanceAttributesChanged();
+        void deviceInstanceMoved(const Point& pos);
+        void deviceInstanceRotated(const Angle& rot);
+        void deviceInstanceMirrored(bool mirrored);
 
 
     signals:
@@ -113,25 +118,24 @@ class BI_Footprint final : public BI_Base, public IF_XmlSerializableObject,
 
     private:
 
-        // make some methods inaccessible...
-        BI_Footprint();
-        BI_Footprint(const BI_Footprint& other);
-        BI_Footprint& operator=(const BI_Footprint& rhs);
-
-        // Private Methods
         void init() throw (Exception);
+        void updateGraphicsItemTransform() noexcept;
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
         bool checkAttributesValidity() const noexcept override;
 
 
         // General
-        ComponentInstance& mComponentInstance;
-        const library::Footprint* mFootprint;
-        QHash<QUuid, BI_FootprintPad*> mPads; ///< key: footprint pad UUID
-        BGI_Footprint* mGraphicsItem;
+        BI_Device& mDevice;
+        QScopedPointer<BGI_Footprint> mGraphicsItem;
+        QHash<Uuid, BI_FootprintPad*> mPads; ///< key: footprint pad UUID
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BI_FOOTPRINT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BI_FOOTPRINT_H

@@ -17,24 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBRARY_LIBRARYBASEELEMENT_H
-#define LIBRARY_LIBRARYBASEELEMENT_H
+#ifndef LIBREPCB_LIBRARY_LIBRARYBASEELEMENT_H
+#define LIBREPCB_LIBRARY_LIBRARYBASEELEMENT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QObject>
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include <librepcbcommon/exceptions.h>
 #include <librepcbcommon/fileio/filepath.h>
 #include <librepcbcommon/version.h>
+#include <librepcbcommon/uuid.h>
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace library {
 
 /*****************************************************************************************
  *  Class LibraryBaseElement
  ****************************************************************************************/
-
-namespace library {
 
 /**
  * @brief The LibraryBaseElement class
@@ -48,23 +52,20 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
         // Constructors / Destructor
         explicit LibraryBaseElement(const QString& xmlFileNamePrefix,
                                     const QString& xmlRootNodeName,
-                                    const QUuid& uuid = QUuid::createUuid(),
-                                    const Version& version = Version(),
-                                    const QString& author = QString(),
-                                    const QString& name_en_US = QString(),
-                                    const QString& description_en_US = QString(),
-                                    const QString& keywords_en_US = QString()) throw (Exception);
+                                    const Uuid& uuid, const Version& version,
+                                    const QString& author, const QString& name_en_US,
+                                    const QString& description_en_US,
+                                    const QString& keywords_en_US) throw (Exception);
         explicit LibraryBaseElement(const FilePath& elementDirectory,
                                     const QString& xmlFileNamePrefix,
-                                    const QString& xmlRootNodeName) throw (Exception);
+                                    const QString& xmlRootNodeName, bool readOnly) throw (Exception);
         virtual ~LibraryBaseElement() noexcept;
 
         // Getters: General
-        const FilePath& getDirectory() const noexcept {return mDirectory;}
-        const FilePath& getXmlFilepath() const noexcept {return mXmlFilepath;}
+        const FilePath& getFilePath() const noexcept {return mDirectory;}
 
         // Getters: Attributes
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const Version& getVersion() const noexcept {return mVersion;}
         const QString& getAuthor() const noexcept {return mAuthor;}
         const QDateTime& getCreated() const noexcept {return mCreated;}
@@ -78,7 +79,7 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
         QStringList getAllAvailableLocales() const noexcept;
 
         // Setters
-        void setUuid(const QUuid& uuid) noexcept {mUuid = uuid;}
+        void setUuid(const Uuid& uuid) noexcept {mUuid = uuid;}
         void setName(const QString& locale, const QString& name) noexcept {mNames[locale] = name;}
         void setDescription(const QString& locale, const QString& desc) noexcept {mDescriptions[locale] = desc;}
         void setKeywords(const QString& locale, const QString& keywords) noexcept {mKeywords[locale] = keywords;}
@@ -86,8 +87,9 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
         void setAuthor(const QString& author) noexcept {mAuthor = author;}
 
         // General Methods
-        void save() const throw (Exception);
-        void saveTo(const FilePath& parentDir) const throw (Exception);
+        void save() throw (Exception);
+        void saveTo(const FilePath& parentDir) throw (Exception);
+        void moveTo(const FilePath& parentDir) throw (Exception);
 
         // Static Methods
 
@@ -181,6 +183,17 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
 
         // Protected Methods
         void readFromFile() throw (Exception);
+
+        /**
+         * @brief Parse and load a DOM tree into this library element object
+         *
+         * Each subclass of #LibraryBaseElement has to override this method and must call
+         * that method on all base classes before loading its own properties!
+         *
+         * @param root          DOM tree root element
+         *
+         * @throw Exception     On any error (for example invalid content in XML files)
+         */
         virtual void parseDomTree(const XmlDomElement& root) throw (Exception);
 
         /// @copydoc IF_XmlSerializableObject#serializeToXmlDomElement()
@@ -192,13 +205,14 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
 
         // General Attributes
         mutable FilePath mDirectory;
-        mutable FilePath mXmlFilepath;
+        mutable bool mDirectoryIsTemporary;
         QString mXmlFileNamePrefix;
         QString mXmlRootNodeName;
         bool mDomTreeParsed;
+        bool mOpenedReadOnly;
 
         // General Library Element Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         Version mVersion;
         QString mAuthor;
         QDateTime mCreated;
@@ -208,6 +222,11 @@ class LibraryBaseElement : public QObject, public IF_XmlSerializableObject
         QMap<QString, QString> mKeywords;     ///< key: locale (like "en_US"), value: keywords
 };
 
-} // namespace library
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // LIBRARY_LIBRARYBASEELEMENT_H
+} // namespace library
+} // namespace librepcb
+
+#endif // LIBREPCB_LIBRARY_LIBRARYBASEELEMENT_H

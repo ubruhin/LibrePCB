@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "QtOpenGL"
@@ -30,13 +29,18 @@
 #include "../gridproperties.h"
 
 /*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
+
+/*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
 GraphicsView::GraphicsView(QWidget* parent, IF_GraphicsViewEventHandler* eventHandler) noexcept :
     QGraphicsView(parent), mEventHandlerObject(eventHandler), mScene(nullptr),
     mZoomAnimation(nullptr), mGridProperties(new GridProperties()), mOriginCrossVisible(true),
-    mUseOpenGl(false)
+    mUseOpenGl(false), mPanningActive(false)
 {
     setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
@@ -111,31 +115,16 @@ void GraphicsView::setOriginCrossVisible(bool visible) noexcept
  *  General Methods
  ****************************************************************************************/
 
-void GraphicsView::zoomIn() noexcept
+Point GraphicsView::mapGlobalPosToScenePos(const QPoint& globalPosPx, bool boundToView,
+                                           bool mapToGrid) const noexcept
 {
-    if (!mScene) return;
-    scale(sZoomStepFactor, sZoomStepFactor);
-}
-
-void GraphicsView::zoomOut() noexcept
-{
-    if (!mScene) return;
-    scale(1/sZoomStepFactor, 1/sZoomStepFactor);
-}
-
-void GraphicsView::zoomAll() noexcept
-{
-    if (!mScene) return;
-    QRectF rect = mScene->itemsBoundingRect();
-    if (rect.isEmpty()) rect = QRectF(-100, -100, 200, 200);
-    qreal xMargins = rect.width() / 50;
-    qreal yMargins = rect.height() / 50;
-    rect += QMarginsF(xMargins, yMargins, xMargins, yMargins);
-    mZoomAnimation->setDuration(500);
-    mZoomAnimation->setEasingCurve(QEasingCurve::InOutCubic);
-    mZoomAnimation->setStartValue(getVisibleSceneRect());
-    mZoomAnimation->setEndValue(rect);
-    mZoomAnimation->start();
+    QPoint localPosPx = mapFromGlobal(globalPosPx);
+    if (boundToView) {
+        localPosPx.setX(qBound(0, localPosPx.x(), width()));
+        localPosPx.setY(qBound(0, localPosPx.y(), height()));
+    }
+    Length gridInterval = mapToGrid ? mGridProperties->getInterval() : Length(0);
+    return Point::fromPx(mapToScene(localPosPx), gridInterval);
 }
 
 void GraphicsView::handleMouseWheelEvent(QGraphicsSceneWheelEvent* event) noexcept
@@ -160,6 +149,37 @@ void GraphicsView::handleMouseWheelEvent(QGraphicsSceneWheelEvent* event) noexce
 }
 
 /*****************************************************************************************
+ *  Public Slots
+ ****************************************************************************************/
+
+void GraphicsView::zoomIn() noexcept
+{
+    if (!mScene) return;
+    scale(sZoomStepFactor, sZoomStepFactor);
+}
+
+void GraphicsView::zoomOut() noexcept
+{
+    if (!mScene) return;
+    scale(1/sZoomStepFactor, 1/sZoomStepFactor);
+}
+
+void GraphicsView::zoomAll() noexcept
+{
+    if (!mScene) return;
+    QRectF rect = mScene->itemsBoundingRect();
+    if (rect.isEmpty()) rect = QRectF(-100, -100, 200, 200);
+    qreal xMargins = rect.width() / 50;
+    qreal yMargins = rect.height() / 50;
+    rect.adjust(-xMargins, -yMargins, xMargins, yMargins);
+    mZoomAnimation->setDuration(500);
+    mZoomAnimation->setEasingCurve(QEasingCurve::InOutCubic);
+    mZoomAnimation->setStartValue(getVisibleSceneRect());
+    mZoomAnimation->setEndValue(rect);
+    mZoomAnimation->start();
+}
+
+/*****************************************************************************************
  *  Private Slots
  ****************************************************************************************/
 
@@ -177,10 +197,25 @@ bool GraphicsView::eventFilter(QObject* obj, QEvent* event)
 {
     switch (event->type())
     {
+        case QEvent::GraphicsSceneMouseMove:
+        {
+            if (!underMouse()) break;
+            QGraphicsSceneMouseEvent* e = dynamic_cast<QGraphicsSceneMouseEvent*>(event); Q_ASSERT(e);
+            if (e->buttons().testFlag(Qt::RightButton) && (!mPanningActive)) {
+                QPoint diff = mapFromScene(e->scenePos()) - mapFromScene(e->buttonDownScenePos(Qt::RightButton));
+                mPanningActive = true; // avoid recursive calls (=> stack overflow)
+                horizontalScrollBar()->setValue(horizontalScrollBar()->value() - diff.x());
+                verticalScrollBar()->setValue(verticalScrollBar()->value() - diff.y());
+                mPanningActive = false;
+                return true;
+            } else if (mPanningActive) {
+                return true;
+            }
+            // no break here!
+        }
         case QEvent::GraphicsSceneMouseDoubleClick:
         case QEvent::GraphicsSceneMousePress:
         case QEvent::GraphicsSceneMouseRelease:
-        case QEvent::GraphicsSceneMouseMove:
         case QEvent::GraphicsSceneContextMenu:
         {
             if (!underMouse()) break;
@@ -268,14 +303,17 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect)
     if (mOriginCrossVisible)
     {
         // draw origin cross
+        qreal len = Length::fromMm(2.54).toPx();
         QPen originPen(foregroundBrush().color());
         originPen.setWidth(0);
         painter->setPen(originPen);
-        painter->drawLine(QLineF(-21.6, 0.0, 21.6, 0.0));
-        painter->drawLine(QLineF(0.0, -21.6, 0.0, 21.6));
+        painter->drawLine(QLineF(-len, 0.0, len, 0.0));
+        painter->drawLine(QLineF(0.0, -len, 0.0, len));
     }
 }
 
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

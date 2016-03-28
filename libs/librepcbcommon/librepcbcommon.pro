@@ -59,7 +59,15 @@ HEADERS += \
     version.h \
     if_schematiclayerprovider.h \
     boardlayer.h \
-    if_boardlayerprovider.h
+    if_boardlayerprovider.h \
+    uuid.h \
+    geometry/polygon.h \
+    geometry/ellipse.h \
+    geometry/text.h \
+    geometry/hole.h \
+    undocommandgroup.h \
+    scopeguard.h \
+    scopeguardlist.h
 
 SOURCES += \
     attributes/attributetype.cpp \
@@ -81,7 +89,6 @@ SOURCES += \
     graphics/graphicsitem.cpp \
     graphics/graphicsscene.cpp \
     graphics/graphicsview.cpp \
-    graphics/if_graphicsvieweventhandler.cpp \
     units/angle.cpp \
     units/length.cpp \
     units/lengthunit.cpp \
@@ -97,7 +104,13 @@ SOURCES += \
     undocommand.cpp \
     undostack.cpp \
     version.cpp \
-    boardlayer.cpp
+    boardlayer.cpp \
+    uuid.cpp \
+    geometry/polygon.cpp \
+    geometry/ellipse.cpp \
+    geometry/text.cpp \
+    geometry/hole.cpp \
+    undocommandgroup.cpp
 
 FORMS += \
     dialogs/gridsettingsdialog.ui

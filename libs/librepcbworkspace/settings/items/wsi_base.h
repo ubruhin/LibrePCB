@@ -17,19 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WSI_BASE_H
-#define WSI_BASE_H
+#ifndef LIBREPCB_WSI_BASE_H
+#define LIBREPCB_WSI_BASE_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 class WorkspaceSettings;
 
@@ -82,4 +83,11 @@ class WSI_Base : public QObject
         WSI_Base& operator=(const WSI_Base& rhs);
 };
 
-#endif // WSI_BASE_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb
+
+#endif // LIBREPCB_WSI_BASE_H

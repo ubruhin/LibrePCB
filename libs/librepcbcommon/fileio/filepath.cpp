@@ -20,9 +20,13 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "filepath.h"
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -53,14 +57,8 @@ FilePath::FilePath(const FilePath& other) noexcept :
 
 bool FilePath::setPath(const QString& filepath) noexcept
 {
-    mIsValid = false;
     mFileInfo.setFile(makeWellFormatted(filepath));
-
-    if (mFileInfo.isAbsolute()) // check if the filepath is absolute
-        mIsValid = true;
-    else
-        qDebug() << "filepath is not absolute:" << filepath << "-->" << mFileInfo.filePath();
-
+    mIsValid = mFileInfo.isAbsolute(); // check if the filepath is absolute
     return mIsValid;
 }
 
@@ -215,13 +213,18 @@ FilePath& FilePath::operator=(const FilePath& rhs) noexcept
     return *this;
 }
 
-bool FilePath::operator==(const FilePath& rhs) noexcept
+bool FilePath::operator==(const FilePath& rhs) const noexcept
 {
     if (mIsValid != rhs.mIsValid)
         return false;
     if (mFileInfo.filePath() != rhs.mFileInfo.filePath())
         return false;
     return true;
+}
+
+bool FilePath::operator!=(const FilePath& rhs) const noexcept
+{
+    return !(*this == rhs);
 }
 
 /*****************************************************************************************
@@ -236,6 +239,27 @@ FilePath FilePath::fromRelative(const FilePath& base, const QString& relative) n
     return FilePath(base.mFileInfo.filePath() % QLatin1Char('/') % relative);
 }
 
+FilePath FilePath::getTempPath() noexcept
+{
+    FilePath tmp(QDir::tempPath());
+
+    if (!tmp.isExistingDir())
+        qWarning() << "Could not determine the system's temporary directory!";
+
+    return tmp;
+}
+
+FilePath FilePath::getApplicationTempPath() noexcept
+{
+    return getTempPath().getPathTo("librepcb");
+}
+
+FilePath FilePath::getRandomTempPath() noexcept
+{
+    QString random = QString("%1_%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(qrand());
+    return getApplicationTempPath().getPathTo(random);
+}
+
 QString FilePath::makeWellFormatted(const QString& filepath) noexcept
 {
     // change all separators to "/", remove redundant separators, resolve "." and "..".
@@ -246,6 +270,10 @@ QString FilePath::makeWellFormatted(const QString& filepath) noexcept
     // this again to ensure that this will always work correctly!
     while ((newPath.endsWith("/")) && (newPath != "/")) // the last character is "/"
         newPath.chop(1); // remove the last character
+
+    // convert "." (current directory) to "" (especially required for Qt >= 5.5.1
+    // as QDir::relativeFilePath() now returns a dot instead of an empty string)
+    if (newPath == ".") newPath = QString("");
 
     return newPath;
 }
@@ -269,3 +297,5 @@ QDebug& operator<<(QDebug& stream, const FilePath& filepath)
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

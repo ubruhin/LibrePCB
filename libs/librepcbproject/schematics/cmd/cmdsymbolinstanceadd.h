@@ -17,33 +17,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_CMDSYMBOLINSTANCEADD_H
-#define PROJECT_CMDSYMBOLINSTANCEADD_H
+#ifndef LIBREPCB_PROJECT_CMDSYMBOLINSTANCEADD_H
+#define LIBREPCB_PROJECT_CMDSYMBOLINSTANCEADD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/units/all_length_units.h>
 #include <librepcbcommon/undocommand.h>
-#include <librepcbcommon/exceptions.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
+namespace librepcb {
 namespace project {
+
 class Schematic;
-class GenCompInstance;
+class ComponentInstance;
 class SI_Symbol;
-}
 
 /*****************************************************************************************
  *  Class CmdSymbolInstanceAdd
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The CmdSymbolInstanceAdd class
@@ -53,28 +50,48 @@ class CmdSymbolInstanceAdd final : public UndoCommand
     public:
 
         // Constructors / Destructor
-        explicit CmdSymbolInstanceAdd(Schematic& schematic, GenCompInstance& genComp,
-                                      const QUuid& symbolItem, const Point& position = Point(),
-                                      const Angle& angle = Angle(), UndoCommand* parent = 0) throw (Exception);
-        explicit CmdSymbolInstanceAdd(SI_Symbol& symbol, UndoCommand* parent = 0) throw (Exception);
+        CmdSymbolInstanceAdd(Schematic& schematic, ComponentInstance& cmpInstance,
+                             const Uuid& symbolItem, const Point& position = Point(),
+                             const Angle& angle = Angle()) noexcept;
+        explicit CmdSymbolInstanceAdd(SI_Symbol& symbol) noexcept;
         ~CmdSymbolInstanceAdd() noexcept;
 
         // Getters
-        SI_Symbol* getSymbol() const noexcept {return mSymbol;}
+        SI_Symbol* getSymbolInstance() const noexcept {return mSymbolInstance;}
 
-        // Inherited from UndoCommand
-        void redo() throw (Exception) override;
-        void undo() throw (Exception) override;
 
     private:
 
+        // Private Methods
+
+        /// @copydoc UndoCommand::performExecute()
+        bool performExecute() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performUndo()
+        void performUndo() throw (Exception) override;
+
+        /// @copydoc UndoCommand::performRedo()
+        void performRedo() throw (Exception) override;
+
+
+        // Private Member Variables
+
         // Attributes from the constructor
         Schematic& mSchematic;
+        ComponentInstance* mComponentInstance;
+        Uuid mSymbolItemUuid;
+        Point mPosition;
+        Angle mAngle;
 
-        /// @brief The created symbol
-        SI_Symbol* mSymbol;
+        /// @brief The created symbol instance
+        SI_Symbol* mSymbolInstance;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_CMDSYMBOLINSTANCEADD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_CMDSYMBOLINSTANCEADD_H

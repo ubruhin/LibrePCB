@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "editnetclassesdialog.h"
@@ -33,6 +32,10 @@
 #include <librepcbproject/circuit/cmd/cmdnetclassadd.h>
 #include <librepcbproject/circuit/cmd/cmdnetclassremove.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -48,13 +51,13 @@ EditNetClassesDialog::EditNetClassesDialog(Circuit& circuit, UndoStack& undoStac
     // The next line tries to begin a new command on the project's undo stack. This will
     // block all other commands (neccessary to avoid problems). If another command is
     // active at the moment, this line throws an exception and the constructor is exited.
-    mUndoStack.beginCommand(tr("Edit Netclasses"));
+    mUndoStack.beginCmdGroup(tr("Edit Netclasses"));
 
     int row = 0;
     mUi->tableWidget->setRowCount(mCircuit.getNetClasses().count());
     foreach (NetClass* netclass, mCircuit.getNetClasses())
     {
-        QTableWidgetItem* uuid = new QTableWidgetItem(netclass->getUuid().toString());
+        QTableWidgetItem* uuid = new QTableWidgetItem(netclass->getUuid().toStr());
         QTableWidgetItem* name = new QTableWidgetItem(netclass->getName());
         uuid->setData(Qt::UserRole, qVariantFromValue(static_cast<void*>(netclass)));
         name->setData(Qt::UserRole, qVariantFromValue(static_cast<void*>(netclass)));
@@ -76,9 +79,9 @@ EditNetClassesDialog::~EditNetClassesDialog() noexcept
 
     // end the active command
     if (result() == QDialog::Accepted)
-        try {mUndoStack.endCommand();} catch (...) {}
+        try {mUndoStack.commitCmdGroup();} catch (...) {}
     else
-        try {mUndoStack.abortCommand();} catch (...) {}
+        try {mUndoStack.abortCmdGroup();} catch (...) {}
 
     delete mUi;         mUi = 0;
 }
@@ -100,7 +103,7 @@ void EditNetClassesDialog::on_tableWidget_itemChanged(QTableWidgetItem *item)
             {
                 auto cmd = new CmdNetClassEdit(mCircuit, *netclass);
                 cmd->setName(item->text());
-                mUndoStack.appendToCommand(cmd);
+                mUndoStack.appendToCmdGroup(cmd);
             }
             catch (Exception& e)
             {
@@ -121,11 +124,11 @@ void EditNetClassesDialog::on_btnAdd_clicked()
     try
     {
         CmdNetClassAdd* cmd = new CmdNetClassAdd(mCircuit, name);
-        mUndoStack.appendToCommand(cmd);
+        mUndoStack.appendToCmdGroup(cmd);
 
         int row = mUi->tableWidget->rowCount();
         mUi->tableWidget->insertRow(row);
-        QTableWidgetItem* uuid = new QTableWidgetItem(cmd->getNetClass()->getUuid().toString());
+        QTableWidgetItem* uuid = new QTableWidgetItem(cmd->getNetClass()->getUuid().toStr());
         QTableWidgetItem* name = new QTableWidgetItem(cmd->getNetClass()->getName());
         name->setData(Qt::UserRole, qVariantFromValue(static_cast<void*>(cmd->getNetClass())));
         mUi->tableWidget->setVerticalHeaderItem(row, uuid);
@@ -147,7 +150,7 @@ void EditNetClassesDialog::on_btnRemove_clicked()
     try
     {
         CmdNetClassRemove* cmd = new CmdNetClassRemove(mCircuit, *netclass);
-        mUndoStack.appendToCommand(cmd);
+        mUndoStack.appendToCmdGroup(cmd);
 
         mUi->tableWidget->removeRow(row);
     }
@@ -162,3 +165,4 @@ void EditNetClassesDialog::on_btnRemove_clicked()
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

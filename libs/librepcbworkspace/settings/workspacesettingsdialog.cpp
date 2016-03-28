@@ -20,13 +20,18 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include "workspacesettingsdialog.h"
 #include "ui_workspacesettingsdialog.h"
 #include "../workspace.h"
 #include "workspacesettings.h"
+
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
+namespace workspace {
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -145,3 +150,6 @@ void WorkspaceSettingsDialog::on_buttonBox_clicked(QAbstractButton *button)
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace workspace
+} // namespace librepcb

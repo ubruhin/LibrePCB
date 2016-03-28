@@ -17,21 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBRARY_LIBRARYCATEGORY_H
-#define LIBRARY_LIBRARYCATEGORY_H
+#ifndef LIBREPCB_LIBRARY_LIBRARYCATEGORY_H
+#define LIBREPCB_LIBRARY_LIBRARYCATEGORY_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "../librarybaseelement.h"
 
 /*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
+namespace library {
+
+/*****************************************************************************************
  *  Class LibraryCategory
  ****************************************************************************************/
-
-namespace library {
 
 /**
  * @brief The LibraryCategory class extends the LibraryBaseElement class with some
@@ -46,22 +49,20 @@ class LibraryCategory : public LibraryBaseElement
         // Constructors / Destructor
         explicit LibraryCategory(const QString& xmlFileNamePrefix,
                                  const QString& xmlRootNodeName,
-                                 const QUuid& uuid = QUuid::createUuid(),
-                                 const Version& version = Version(),
-                                 const QString& author = QString(),
-                                 const QString& name_en_US = QString(),
-                                 const QString& description_en_US = QString(),
-                                 const QString& keywords_en_US = QString()) throw (Exception);
+                                 const Uuid& uuid, const Version& version,
+                                 const QString& author, const QString& name_en_US,
+                                 const QString& description_en_US,
+                                 const QString& keywords_en_US ) throw (Exception);
         explicit LibraryCategory(const FilePath& elementDirectory,
                                  const QString& xmlFileNamePrefix,
-                                 const QString& xmlRootNodeName) throw (Exception);
+                                 const QString& xmlRootNodeName, bool readOnly) throw (Exception);
         virtual ~LibraryCategory() noexcept;
 
         // Getters: Attributes
-        const QUuid& getParentUuid() const noexcept {return mParentUuid;}
+        const Uuid& getParentUuid() const noexcept {return mParentUuid;}
 
         // Setters: Attributes
-        void setParentUuid(const QUuid& parentUuid) noexcept {mParentUuid = parentUuid;}
+        void setParentUuid(const Uuid& parentUuid) noexcept {mParentUuid = parentUuid;}
 
 
     private:
@@ -83,9 +84,14 @@ class LibraryCategory : public LibraryBaseElement
         virtual bool checkAttributesValidity() const noexcept override;
 
         // General Library Category Attributes
-        QUuid mParentUuid;
+        Uuid mParentUuid;
 };
 
-} // namespace library
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // LIBRARY_LIBRARYCATEGORY_H
+} // namespace library
+} // namespace librepcb
+
+#endif // LIBREPCB_LIBRARY_LIBRARYCATEGORY_H

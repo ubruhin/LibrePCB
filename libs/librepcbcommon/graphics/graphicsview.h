@@ -17,19 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRAPHICSVIEW_H
-#define GRAPHICSVIEW_H
+#ifndef LIBREPCB_GRAPHICSVIEW_H
+#define LIBREPCB_GRAPHICSVIEW_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
+#include "../units/all_length_units.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class IF_GraphicsViewEventHandler;
 class GraphicsScene;
@@ -67,10 +68,17 @@ class GraphicsView final : public QGraphicsView
         void setOriginCrossVisible(bool visible) noexcept;
 
         // General Methods
+        Point mapGlobalPosToScenePos(const QPoint& globalPosPx, bool boundToView,
+                                     bool mapToGrid) const noexcept;
+        void handleMouseWheelEvent(QGraphicsSceneWheelEvent* event) noexcept;
+
+
+    public slots:
+
+        // Public Slots
         void zoomIn() noexcept;
         void zoomOut() noexcept;
         void zoomAll() noexcept;
-        void handleMouseWheelEvent(QGraphicsSceneWheelEvent* event) noexcept;
 
 
     private slots:
@@ -98,9 +106,16 @@ class GraphicsView final : public QGraphicsView
         GridProperties* mGridProperties;
         bool mOriginCrossVisible;
         bool mUseOpenGl;
+        volatile bool mPanningActive;
 
         // Static Variables
-        static constexpr qreal sZoomStepFactor = 1.5;
+        static constexpr qreal sZoomStepFactor = 1.3;
 };
 
-#endif // GRAPHICSVIEW_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
+
+#endif // LIBREPCB_GRAPHICSVIEW_H

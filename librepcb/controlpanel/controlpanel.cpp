@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <QFileDialog>
@@ -35,7 +34,13 @@
 #include <librepcbprojecteditor/projecteditor.h>
 #include <librepcbcommon/application.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
+
 using namespace project;
+using namespace workspace;
 
 /*****************************************************************************************
  *  Constructors / Destructor
@@ -214,6 +219,11 @@ ProjectEditor* ControlPanel::openProject(const FilePath& filepath) noexcept
         editor->showAllRequiredEditors();
         return editor;
     }
+    catch (UserCanceled& e)
+    {
+        // do nothing
+        return nullptr;
+    }
     catch (Exception& e)
     {
         QMessageBox::critical(this, tr("Could not open project"), e.getUserMsg());
@@ -223,8 +233,7 @@ ProjectEditor* ControlPanel::openProject(const FilePath& filepath) noexcept
 
 bool ControlPanel::closeProject(ProjectEditor& editor, bool askForSave) noexcept
 {
-    const FilePath& filepath = editor.getProject().getFilepath().toUnique();
-    Q_ASSERT(mOpenProjectEditors.contains(filepath.toStr()));
+    Q_ASSERT(mOpenProjectEditors.contains(editor.getProject().getFilepath().toUnique().toStr()));
     return editor.closeAndDestroy(askForSave, this); // this will implicitly call the slot "projectEditorClosed()"!
 }
 
@@ -276,7 +285,11 @@ void ControlPanel::projectEditorClosed() noexcept
 
 void ControlPanel::on_actionAbout_triggered()
 {
-    QMessageBox::about(this, tr("About"), tr("LibrePCB is a free & OpenSource Schematic/Layout-Editor"));
+    QMessageBox::about(this, tr("About"), tr(
+        "LibrePCB is a free & open source schematic/layout-editor."
+        "<br><br>"
+        "You can find the project on GitHub:<br>"
+        "<a href='https://github.com/LibrePCB/LibrePCB'>https://github.com/LibrePCB/LibrePCB</a>"));
 }
 
 void ControlPanel::on_actionNew_Project_triggered()
@@ -375,99 +388,83 @@ void ControlPanel::on_projectTreeView_doubleClicked(const QModelIndex& index)
 
 void ControlPanel::on_projectTreeView_customContextMenuRequested(const QPoint& pos)
 {
+    // get clicked tree item
+    QModelIndex index = mUi->projectTreeView->indexAt(pos);
+    if (!index.isValid()) return;
+    ProjectTreeItem* item = static_cast<ProjectTreeItem*>(index.internalPointer());
+    if (!item) return;
+
+    // build context menu with actions
     QMenu menu;
     QMap<unsigned int, QAction*> actions;
-
-    QModelIndex index = mUi->projectTreeView->indexAt(pos);
-    ProjectTreeItem* item = 0;
-
-    if (index.isValid())
+    if (item->getType() == ProjectTreeItem::ProjectFile)
     {
-        item = static_cast<ProjectTreeItem*>(index.internalPointer());
-        if (item)
+        if (!getOpenProject(item->getFilePath()))
         {
-            if (item->getType() == ProjectTreeItem::ProjectFile)
-            {
-                if (!getOpenProject(item->getFilePath()))
-                {
-                    // this project is not open
-                    actions.insert(1, menu.addAction(tr("Open Project")));
-                    actions.value(1)->setIcon(QIcon(":/img/actions/open.png"));
-                }
-                else
-                {
-                    // this project is open
-                    actions.insert(2, menu.addAction(tr("Close Project")));
-                    actions.value(2)->setIcon(QIcon(":/img/actions/close.png"));
-                }
-
-                if (mWorkspace.isFavoriteProject(item->getFilePath()))
-                {
-                    // this is a favorite project
-                    actions.insert(3, menu.addAction(tr("Remove from favorites")));
-                    actions.value(3)->setIcon(QIcon(":/img/actions/bookmark.png"));
-                }
-                else
-                {
-                    // this is not a favorite project
-                    actions.insert(4, menu.addAction(tr("Add to favorites")));
-                    actions.value(4)->setIcon(QIcon(":/img/actions/bookmark_gray.png"));
-                }
-
-                actions.insert(100, menu.addSeparator());
-            }
-            else
-            {
-                // a folder or a file is selected
-
-                actions.insert(10, menu.addAction(tr("New Project")));
-                actions.value(10)->setIcon(QIcon(":/img/actions/new.png"));
-            }
-
-            actions.insert(20, menu.addAction(tr("New Folder")));
-            actions.value(20)->setIcon(QIcon(":/img/actions/new_folder.png"));
-
-            actions.insert(101, menu.addSeparator());
-
-            actions.insert(21, menu.addAction(tr("Open Directory")));
-            actions.value(21)->setIcon(QIcon(":/img/places/folder_open.png"));
-
-            actions.insert(102, menu.addSeparator());
+            // this project is not open
+            actions.insert(1, menu.addAction(tr("Open Project")));
+            actions.value(1)->setIcon(QIcon(":/img/actions/open.png"));
         }
+        else
+        {
+            // this project is open
+            actions.insert(2, menu.addAction(tr("Close Project")));
+            actions.value(2)->setIcon(QIcon(":/img/actions/close.png"));
+        }
+        if (mWorkspace.isFavoriteProject(item->getFilePath()))
+        {
+            // this is a favorite project
+            actions.insert(3, menu.addAction(tr("Remove from favorites")));
+            actions.value(3)->setIcon(QIcon(":/img/actions/bookmark.png"));
+        }
+        else
+        {
+            // this is not a favorite project
+            actions.insert(4, menu.addAction(tr("Add to favorites")));
+            actions.value(4)->setIcon(QIcon(":/img/actions/bookmark_gray.png"));
+        }
+        actions.insert(100, menu.addSeparator());
     }
+    else
+    {
+        // a folder or a file is selected
+        actions.insert(10, menu.addAction(tr("New Project")));
+        actions.value(10)->setIcon(QIcon(":/img/actions/new.png"));
+    }
+    actions.insert(20, menu.addAction(tr("New Folder")));
+    actions.value(20)->setIcon(QIcon(":/img/actions/new_folder.png"));
+    actions.insert(101, menu.addSeparator());
+    actions.insert(21, menu.addAction(tr("Open Directory")));
+    actions.value(21)->setIcon(QIcon(":/img/places/folder_open.png"));
+    actions.insert(102, menu.addSeparator());
 
+    // show context menu and execute the clicked action
     switch (actions.key(menu.exec(QCursor::pos()), 0))
     {
         case 1: // open project
             openProject(item->getFilePath());
             break;
-
         case 2: // close project
             closeProject(item->getFilePath(), true);
             break;
-
         case 3: // remove project from favorites
             mWorkspace.removeFavoriteProject(item->getFilePath());
             break;
-
         case 4: // add project to favorites
             mWorkspace.addFavoriteProject(item->getFilePath());
             break;
-
         case 10: // new project
             break;
-
         case 20: // new folder
             break;
-
         case 21: // open project directory
             QDesktopServices::openUrl(QUrl::fromLocalFile(item->getFilePath().toStr()));
             break;
-
         default:
             break;
     }
 
+    // clean up
     qDeleteAll(actions);
 }
 
@@ -561,3 +558,5 @@ void ControlPanel::on_actionRescanLibrary_triggered()
 /*****************************************************************************************
  *  End of File
  ****************************************************************************************/
+
+} // namespace librepcb

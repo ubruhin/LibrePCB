@@ -17,30 +17,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_PROJECT_H
-#define PROJECT_PROJECT_H
+#ifndef LIBREPCB_PROJECT_PROJECT_H
+#define LIBREPCB_PROJECT_PROJECT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/fileio/if_xmlserializableobject.h>
 #include <librepcbcommon/if_attributeprovider.h>
 #include <librepcbcommon/if_schematiclayerprovider.h>
 #include <librepcbcommon/if_boardlayerprovider.h>
 #include <librepcbcommon/exceptions.h>
+#include <librepcbcommon/uuid.h>
 #include <librepcbcommon/fileio/filelock.h>
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
-
 class QPrinter;
+
+namespace librepcb {
+
 class SmartTextFile;
 class SmartXmlFile;
 
 namespace project {
+
 class ProjectSettings;
 class ProjectLibrary;
 class Circuit;
@@ -48,14 +51,10 @@ class Schematic;
 class SchematicLayerProvider;
 class ErcMsgList;
 class Board;
-class BoardLayerProvider;
-}
 
 /*****************************************************************************************
  *  Class Project
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The Project class represents a whole (opened) project with all its content
@@ -77,8 +76,7 @@ namespace project {
  * @date 2014-06-24
  */
 class Project final : public QObject, public IF_AttributeProvider,
-                      public IF_SchematicLayerProvider, public IF_BoardLayerProvider,
-                      public IF_XmlSerializableObject
+                      public IF_SchematicLayerProvider, public IF_XmlSerializableObject
 {
         Q_OBJECT
 
@@ -261,7 +259,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @return the schematic index (-1 if the schematic does not exist)
          */
-        int getSchematicIndex(const Schematic* schematic) const noexcept;
+        int getSchematicIndex(const Schematic& schematic) const noexcept;
 
         /**
          * @brief Get all schematics
@@ -286,7 +284,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @return A pointer to the specified schematic, or nullptr if uuid is invalid
          */
-        Schematic* getSchematicByUuid(const QUuid& uuid) const noexcept;
+        Schematic* getSchematicByUuid(const Uuid& uuid) const noexcept;
 
         /**
          * @brief Get the schematic page with a specific name
@@ -318,7 +316,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @undocmd{project#CmdSchematicAdd}
          */
-        void addSchematic(Schematic* schematic, int newIndex = -1) throw (Exception);
+        void addSchematic(Schematic& schematic, int newIndex = -1) throw (Exception);
 
         /**
          * @brief Remove a schematic from this project
@@ -331,7 +329,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @undocmd{project#CmdSchematicRemove}
          */
-        void removeSchematic(Schematic* schematic, bool deleteSchematic = false) throw (Exception);
+        void removeSchematic(Schematic& schematic, bool deleteSchematic = false) throw (Exception);
 
         /**
          * @brief Export the schematic pages as a PDF
@@ -349,16 +347,11 @@ class Project final : public QObject, public IF_AttributeProvider,
         // Board Methods
 
         /**
-         * @copydoc IF_BoardLayerProvider#getBoardLayer()
-         */
-        BoardLayer* getBoardLayer(int id) const noexcept;
-
-        /**
          * @brief Get the index of a specific board
          *
          * @return the board index (-1 if the board does not exist)
          */
-        int getBoardIndex(const Board* board) const noexcept;
+        int getBoardIndex(const Board& board) const noexcept;
 
         /**
          * @brief Get all boards
@@ -383,7 +376,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @return A pointer to the specified board, or nullptr if uuid is invalid
          */
-        Board* getBoardByUuid(const QUuid& uuid) const noexcept;
+        Board* getBoardByUuid(const Uuid& uuid) const noexcept;
 
         /**
          * @brief Get the board with a specific name
@@ -406,6 +399,18 @@ class Project final : public QObject, public IF_AttributeProvider,
         Board* createBoard(const QString& name) throw (Exception);
 
         /**
+         * @brief Create a new board as a copy of an existing board
+         *
+         * @param other The board to copy
+         * @param name  The board name
+         *
+         * @return A pointer to the new board
+         *
+         * @throw Exception This method throws an exception on error.
+         */
+        Board* createBoard(const Board& other, const QString& name) throw (Exception);
+
+        /**
          * @brief Add an existing board to this project
          *
          * @param board         The board to add
@@ -415,7 +420,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @undocmd{project#CmdBoardAdd}
          */
-        void addBoard(Board* board, int newIndex = -1) throw (Exception);
+        void addBoard(Board& board, int newIndex = -1) throw (Exception);
 
         /**
          * @brief Remove a board from this project
@@ -428,7 +433,7 @@ class Project final : public QObject, public IF_AttributeProvider,
          *
          * @undocmd{project#CmdBoardRemove}
          */
-        void removeBoard(Board* board, bool deleteBoard = false) throw (Exception);
+        void removeBoard(Board& board, bool deleteBoard = false) throw (Exception);
 
 
         // General Methods
@@ -436,7 +441,6 @@ class Project final : public QObject, public IF_AttributeProvider,
         /**
          * @brief Save the whole project to the harddisc
          *
-         * @param version       The version of the files which will be created/overwritten
          * @param toOriginal    If false, the project is saved only to temporary files
          *
          * @note The whole save procedere is described in @ref doc_project_save.
@@ -567,15 +571,19 @@ class Project final : public QObject, public IF_AttributeProvider,
         ProjectSettings* mProjectSettings; ///< all project specific settings
         ProjectLibrary* mProjectLibrary; ///< the library which contains all elements needed in this project
         ErcMsgList* mErcMsgList; ///< A list which contains all electrical rule check (ERC) messages
-        Circuit* mCircuit; ///< The whole circuit of this project (contains all netclasses, netsignals, generic component instances, ...)
+        Circuit* mCircuit; ///< The whole circuit of this project (contains all netclasses, netsignals, component instances, ...)
         QList<Schematic*> mSchematics; ///< All schematics of this project
         QList<Schematic*> mRemovedSchematics; ///< All removed schematics of this project
         SchematicLayerProvider* mSchematicLayerProvider; ///< All schematic layers of this project
-        BoardLayerProvider* mBoardLayerProvider; ///< All board layers of this project
         QList<Board*> mBoards; ///< All boards of this project
         QList<Board*> mRemovedBoards; ///< All removed boards of this project
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_PROJECT_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_PROJECT_H

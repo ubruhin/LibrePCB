@@ -17,13 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PROJECT_BOARD_H
-#define PROJECT_BOARD_H
+#ifndef LIBREPCB_PROJECT_BOARD_H
+#define LIBREPCB_PROJECT_BOARD_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
 #include <librepcbcommon/if_attributeprovider.h>
@@ -31,28 +30,36 @@
 #include <librepcbcommon/units/all_length_units.h>
 #include <librepcbcommon/fileio/filepath.h>
 #include <librepcbcommon/exceptions.h>
+#include <librepcbcommon/uuid.h>
 #include "../erc/if_ercmsgprovider.h"
 
 /*****************************************************************************************
- *  Forward Declarations
+ *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace librepcb {
 
 class GridProperties;
 class GraphicsView;
 class GraphicsScene;
 class SmartXmlFile;
+class BoardLayer;
 
 namespace project {
+
+class NetSignal;
 class Project;
-class ComponentInstance;
+class BI_Device;
 class BI_Base;
-}
+class BI_FootprintPad;
+class BI_Via;
+class BI_NetPoint;
+class BI_NetLine;
+class BI_Polygon;
+class BoardLayerStack;
 
 /*****************************************************************************************
  *  Class Board
  ****************************************************************************************/
-
-namespace project {
 
 /**
  * @brief The Board class represents a PCB of a project and is always part of a circuit
@@ -78,14 +85,20 @@ class Board final : public QObject, public IF_AttributeProvider,
          */
         enum ItemZValue {
             ZValue_Default = 0,         ///< this is the default value (behind all other items)
-            ZValue_FootprintsBottom,    ///< Z value for project#BI_Footprint items
-            ZValue_FootprintPadsBottom, ///< Z value for project#BI_FootprintPad items
-            ZValue_FootprintPadsTop,    ///< Z value for project#BI_FootprintPad items
-            ZValue_FootprintsTop,       ///< Z value for project#BI_Footprint items
+            ZValue_FootprintsBottom,    ///< Z value for #project#BI_Footprint items
+            ZValue_FootprintPadsBottom, ///< Z value for #project#BI_FootprintPad items
+            ZValue_CopperBottom,
+            ZValue_CopperTop,
+            ZValue_FootprintPadsTop,    ///< Z value for #project#BI_FootprintPad items
+            ZValue_FootprintsTop,       ///< Z value for #project#BI_Footprint items
+            ZValue_Vias,                ///< Z value for #project#BI_Via items
         };
 
         // Constructors / Destructor
-        explicit Board(Project& project, const FilePath& filepath, bool restore, bool readOnly) throw (Exception) :
+        Board() = delete;
+        Board(const Board& other) = delete;
+        Board(const Board& other, const FilePath& filepath, const QString& name) throw (Exception);
+        Board(Project& project, const FilePath& filepath, bool restore, bool readOnly) throw (Exception) :
             Board(project, filepath, restore, readOnly, false, QString()) {}
         ~Board() noexcept;
 
@@ -93,37 +106,63 @@ class Board final : public QObject, public IF_AttributeProvider,
         Project& getProject() const noexcept {return mProject;}
         const FilePath& getFilePath() const noexcept {return mFilePath;}
         const GridProperties& getGridProperties() const noexcept {return *mGridProperties;}
+        BoardLayerStack& getLayerStack() noexcept {return *mLayerStack;}
         bool isEmpty() const noexcept;
-        QList<BI_Base*> getSelectedItems(bool footprintPads
-                                         /*bool floatingPoints,
+        QList<BI_Base*> getSelectedItems(bool vias,
+                                         bool footprintPads,
+                                         bool floatingPoints,
                                          bool attachedPoints,
                                          bool floatingPointsFromFloatingLines,
                                          bool attachedPointsFromFloatingLines,
                                          bool floatingPointsFromAttachedLines,
                                          bool attachedPointsFromAttachedLines,
-                                         bool attachedPointsFromSymbols,
+                                         bool attachedPointsFromFootprints,
                                          bool floatingLines,
                                          bool attachedLines,
-                                         bool attachedLinesFromFootprints*/) const noexcept;
+                                         bool attachedLinesFromFootprints) const noexcept;
         QList<BI_Base*> getItemsAtScenePos(const Point& pos) const noexcept;
-        //QList<SI_NetPoint*> getNetPointsAtScenePos(const Point& pos) const noexcept;
-        //QList<SI_NetLine*> getNetLinesAtScenePos(const Point& pos) const noexcept;
-        //QList<SI_SymbolPin*> getPinsAtScenePos(const Point& pos) const noexcept;
+        QList<BI_Via*> getViasAtScenePos(const Point& pos, const NetSignal* netsignal) const noexcept;
+        QList<BI_NetPoint*> getNetPointsAtScenePos(const Point& pos, const BoardLayer* layer,
+                                                   const NetSignal* netsignal) const noexcept;
+        QList<BI_NetLine*> getNetLinesAtScenePos(const Point& pos, const BoardLayer* layer,
+                                                 const NetSignal* netsignal) const noexcept;
+        QList<BI_FootprintPad*> getPadsAtScenePos(const Point& pos, const BoardLayer* layer,
+                                                  const NetSignal* netsignal) const noexcept;
+        QList<BI_Base*> getAllItems() const noexcept;
 
         // Setters: General
         void setGridProperties(const GridProperties& grid) noexcept;
 
         // Getters: Attributes
-        const QUuid& getUuid() const noexcept {return mUuid;}
+        const Uuid& getUuid() const noexcept {return mUuid;}
         const QString& getName() const noexcept {return mName;}
         const QIcon& getIcon() const noexcept {return mIcon;}
 
-        // ComponentInstance Methods
-        const QHash<QUuid, ComponentInstance*>& getComponentInstances() const noexcept {return mComponentInstances;}
-        ComponentInstance* getCompInstanceByGenCompUuid(const QUuid& uuid) const noexcept;
-        ComponentInstance* createComponentInstance() throw (Exception);
-        void addComponentInstance(ComponentInstance& componentInstance) throw (Exception);
-        void removeComponentInstance(ComponentInstance& componentInstance) throw (Exception);
+        // DeviceInstance Methods
+        const QMap<Uuid, BI_Device*>& getDeviceInstances() const noexcept {return mDeviceInstances;}
+        BI_Device* getDeviceInstanceByComponentUuid(const Uuid& uuid) const noexcept;
+        void addDeviceInstance(BI_Device& instance) throw (Exception);
+        void removeDeviceInstance(BI_Device& instance) throw (Exception);
+
+        // Via Methods
+        BI_Via* getViaByUuid(const Uuid& uuid) const noexcept;
+        void addVia(BI_Via& via) throw (Exception);
+        void removeVia(BI_Via& via) throw (Exception);
+
+        // NetPoint Methods
+        BI_NetPoint* getNetPointByUuid(const Uuid& uuid) const noexcept;
+        void addNetPoint(BI_NetPoint& netpoint) throw (Exception);
+        void removeNetPoint(BI_NetPoint& netpoint) throw (Exception);
+
+        // NetLine Methods
+        BI_NetLine* getNetLineByUuid(const Uuid& uuid) const noexcept;
+        void addNetLine(BI_NetLine& netline) throw (Exception);
+        void removeNetLine(BI_NetLine& netline) throw (Exception);
+
+        // Polygon Methods
+        const QList<BI_Polygon*>& getPolygons() const noexcept {return mPolygons;}
+        void addPolygon(BI_Polygon& polygon) throw (Exception);
+        void removePolygon(BI_Polygon& polygon) throw (Exception);
 
         // General Methods
         void addToProject() throw (Exception);
@@ -139,6 +178,11 @@ class Board final : public QObject, public IF_AttributeProvider,
         bool getAttributeValue(const QString& attrNS, const QString& attrKey,
                                bool passToParents, QString& value) const noexcept;
 
+        // Operator Overloadings
+        Board& operator=(const Board& rhs) = delete;
+        bool operator==(const Board& rhs) noexcept {return (this == &rhs);}
+        bool operator!=(const Board& rhs) noexcept {return (this != &rhs);}
+
         // Static Methods
         static Board* create(Project& project, const FilePath& filepath,
                              const QString& name) throw (Exception);
@@ -149,20 +193,14 @@ class Board final : public QObject, public IF_AttributeProvider,
         /// @copydoc IF_AttributeProvider#attributesChanged()
         void attributesChanged();
 
-        void componentAdded(ComponentInstance& comp);
-        void componentRemoved(ComponentInstance& comp);
+        void deviceAdded(BI_Device& comp);
+        void deviceRemoved(BI_Device& comp);
 
 
     private:
 
-        // make some methods inaccessible...
-        Board() = delete;
-        Board(const Board& other) = delete;
-        Board& operator=(const Board& rhs) = delete;
-
-        // Private Methods
-        explicit Board(Project& project, const FilePath& filepath, bool restore,
-                       bool readOnly, bool create, const QString& newName) throw (Exception);
+        Board(Project& project, const FilePath& filepath, bool restore,
+              bool readOnly, bool create, const QString& newName) throw (Exception);
         void updateIcon() noexcept;
 
         /// @copydoc IF_XmlSerializableObject#checkAttributesValidity()
@@ -177,25 +215,35 @@ class Board final : public QObject, public IF_AttributeProvider,
         // General
         Project& mProject; ///< A reference to the Project object (from the ctor)
         FilePath mFilePath; ///< the filepath of the schematic *.xml file (from the ctor)
-        SmartXmlFile* mXmlFile;
-        bool mAddedToProject;
+        QScopedPointer<SmartXmlFile> mXmlFile;
+        bool mIsAddedToProject;
 
-        GraphicsScene* mGraphicsScene;
+        QScopedPointer<GraphicsScene> mGraphicsScene;
+        QScopedPointer<BoardLayerStack> mLayerStack;
+        QScopedPointer<GridProperties> mGridProperties;
         QRectF mViewRect;
-        GridProperties* mGridProperties;
 
         // Attributes
-        QUuid mUuid;
+        Uuid mUuid;
         QString mName;
         QIcon mIcon;
 
-        // ERC messages
-        QHash<QUuid, ErcMsg*> mErcMsgListUnplacedGenCompInstances;
-
         // items
-        QHash<QUuid, ComponentInstance*> mComponentInstances;
+        QMap<Uuid, BI_Device*> mDeviceInstances;
+        QList<BI_Via*> mVias;
+        QList<BI_NetPoint*> mNetPoints;
+        QList<BI_NetLine*> mNetLines;
+        QList<BI_Polygon*> mPolygons;
+
+        // ERC messages
+        QHash<Uuid, ErcMsg*> mErcMsgListUnplacedComponentInstances;
 };
 
-} // namespace project
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
 
-#endif // PROJECT_BOARD_H
+} // namespace project
+} // namespace librepcb
+
+#endif // LIBREPCB_PROJECT_BOARD_H

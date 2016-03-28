@@ -20,31 +20,33 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <librepcbcommon/exceptions.h>
 #include "projectlibrary.h"
 #include <librepcbcommon/fileio/filepath.h>
 #include "../project.h"
 #include <librepcblibrary/sym/symbol.h>
-#include <librepcblibrary/fpt/footprint.h>
-#include <librepcblibrary/3dmdl/model3d.h>
 #include <librepcblibrary/spcmdl/spicemodel.h>
 #include <librepcblibrary/pkg/package.h>
-#include <librepcblibrary/gencmp/genericcomponent.h>
 #include <librepcblibrary/cmp/component.h>
+#include <librepcblibrary/dev/device.h>
 #include <librepcbcommon/application.h>
 
-using namespace library;
-
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
+
+using namespace library;
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
 ProjectLibrary::ProjectLibrary(Project& project, bool restore, bool readOnly) throw (Exception) :
-    QObject(0), mProject(project), mLibraryPath(project.getPath().getPathTo("library"))
+    QObject(&project), mProject(project),
+    mLibraryPath(project.getPath().getPathTo("library"))
 {
     qDebug() << "load project library...";
 
@@ -62,24 +64,20 @@ ProjectLibrary::ProjectLibrary(Project& project, bool restore, bool readOnly) th
     try
     {
         // Load all library elements
-        loadElements<Symbol>          (mLibraryPath.getPathTo("sym"),    "symbols",            mSymbols);
-        loadElements<Footprint>       (mLibraryPath.getPathTo("fpt"),    "footprints",         mFootprints);
-        loadElements<Model3D>         (mLibraryPath.getPathTo("3dmdl"),  "3d models",          mModels);
-        loadElements<SpiceModel>      (mLibraryPath.getPathTo("spcmdl"), "spice models",       mSpiceModels);
-        loadElements<Package>         (mLibraryPath.getPathTo("pkg"),    "packages",           mPackages);
-        loadElements<GenericComponent>(mLibraryPath.getPathTo("gencmp"), "generic components", mGenericComponents);
-        loadElements<Component>       (mLibraryPath.getPathTo("cmp"),    "components",         mComponents);
+        loadElements<Symbol>    (mLibraryPath.getPathTo("sym"),    "symbols",      mSymbols);
+        loadElements<SpiceModel>(mLibraryPath.getPathTo("spcmdl"), "spice models", mSpiceModels);
+        loadElements<Package>   (mLibraryPath.getPathTo("pkg"),    "packages",     mPackages);
+        loadElements<Component> (mLibraryPath.getPathTo("cmp"),    "components",   mComponents);
+        loadElements<Device>    (mLibraryPath.getPathTo("dev"),    "devices",      mDevices);
     }
     catch (Exception &e)
     {
         // free the allocated memory in the reverse order of their allocation...
-        qDeleteAll(mComponents);            mComponents.clear();
-        qDeleteAll(mGenericComponents);     mGenericComponents.clear();
-        qDeleteAll(mPackages);              mPackages.clear();
-        qDeleteAll(mSpiceModels);           mSpiceModels.clear();
-        qDeleteAll(mModels);                mModels.clear();
-        qDeleteAll(mFootprints);            mFootprints.clear();
-        qDeleteAll(mSymbols);               mSymbols.clear();
+        qDeleteAll(mDevices);       mDevices.clear();
+        qDeleteAll(mComponents);    mComponents.clear();
+        qDeleteAll(mPackages);      mPackages.clear();
+        qDeleteAll(mSpiceModels);   mSpiceModels.clear();
+        qDeleteAll(mSymbols);       mSymbols.clear();
         throw; // ...and rethrow the exception
     }
 
@@ -89,74 +87,60 @@ ProjectLibrary::ProjectLibrary(Project& project, bool restore, bool readOnly) th
 ProjectLibrary::~ProjectLibrary() noexcept
 {
     // clean up all removed elements
-    cleanupRemovedElements<Symbol>(mRemovedSymbols);
-    cleanupRemovedElements<Footprint>(mRemovedFootprints);
-    cleanupRemovedElements<Model3D>(mRemovedModels);
-    cleanupRemovedElements<SpiceModel>(mRemovedSpiceModels);
-    cleanupRemovedElements<Package>(mRemovedPackages);
-    cleanupRemovedElements<GenericComponent>(mRemovedGenericComponents);
-    cleanupRemovedElements<Component>(mRemovedComponents);
+    cleanupElements<Symbol>(mAddedSymbols, mRemovedSymbols);
+    cleanupElements<SpiceModel>(mAddedSpiceModels, mRemovedSpiceModels);
+    cleanupElements<Package>(mAddedPackages, mRemovedPackages);
+    cleanupElements<Component>(mAddedComponents, mRemovedComponents);
+    cleanupElements<Device>(mAddedDevices, mRemovedDevices);
 
     // Delete all library elements (in reverse order of their creation)
-    qDeleteAll(mComponents);            mComponents.clear();
-    qDeleteAll(mGenericComponents);     mGenericComponents.clear();
-    qDeleteAll(mPackages);              mPackages.clear();
-    qDeleteAll(mSpiceModels);           mSpiceModels.clear();
-    qDeleteAll(mModels);                mModels.clear();
-    qDeleteAll(mFootprints);            mFootprints.clear();
-    qDeleteAll(mSymbols);               mSymbols.clear();
+    qDeleteAll(mDevices);       mDevices.clear();
+    qDeleteAll(mComponents);    mComponents.clear();
+    qDeleteAll(mPackages);      mPackages.clear();
+    qDeleteAll(mSpiceModels);   mSpiceModels.clear();
+    qDeleteAll(mSymbols);       mSymbols.clear();
 }
 
 /*****************************************************************************************
  *  Getters: Library Elements
  ****************************************************************************************/
 
-const Symbol* ProjectLibrary::getSymbol(const QUuid& uuid) const noexcept
+Symbol* ProjectLibrary::getSymbol(const Uuid& uuid) const noexcept
 {
     return mSymbols.value(uuid, 0);
 }
 
-const Footprint* ProjectLibrary::getFootprint(const QUuid& uuid) const noexcept
-{
-    return mFootprints.value(uuid, 0);
-}
-
-const Model3D* ProjectLibrary::getModel(const QUuid& uuid) const noexcept
-{
-    return mModels.value(uuid, 0);
-}
-
-const SpiceModel* ProjectLibrary::getSpiceModel(const QUuid& uuid) const noexcept
+SpiceModel* ProjectLibrary::getSpiceModel(const Uuid& uuid) const noexcept
 {
     return mSpiceModels.value(uuid, 0);
 }
 
-const Package* ProjectLibrary::getPackage(const QUuid& uuid) const noexcept
+Package* ProjectLibrary::getPackage(const Uuid& uuid) const noexcept
 {
     return mPackages.value(uuid, 0);
 }
 
-const GenericComponent* ProjectLibrary::getGenComp(const QUuid& uuid) const noexcept
-{
-    return mGenericComponents.value(uuid, 0);
-}
-
-const Component* ProjectLibrary::getComponent(const QUuid& uuid) const noexcept
+Component* ProjectLibrary::getComponent(const Uuid& uuid) const noexcept
 {
     return mComponents.value(uuid, 0);
+}
+
+Device* ProjectLibrary::getDevice(const Uuid& uuid) const noexcept
+{
+    return mDevices.value(uuid, 0);
 }
 
 /*****************************************************************************************
  *  Getters: Special Queries
  ****************************************************************************************/
 
-QHash<QUuid, const library::Component*> ProjectLibrary::getComponentsOfGenComp(const QUuid& genCompUuid) const noexcept
+QHash<Uuid, library::Device*> ProjectLibrary::getDevicesOfComponent(const Uuid& compUuid) const noexcept
 {
-    QHash<QUuid, const library::Component*> list;
-    foreach (const library::Component* component, mComponents)
+    QHash<Uuid, library::Device*> list;
+    foreach (library::Device* device, mDevices)
     {
-        if (component->getGenCompUuid() == genCompUuid)
-            list.insert(component->getUuid(), component);
+        if (device->getComponentUuid() == compUuid)
+            list.insert(device->getUuid(), device);
     }
     return list;
 }
@@ -165,74 +149,54 @@ QHash<QUuid, const library::Component*> ProjectLibrary::getComponentsOfGenComp(c
  *  Add/Remove Methods
  ****************************************************************************************/
 
-void ProjectLibrary::addSymbol(const library::Symbol& s) throw (Exception)
+void ProjectLibrary::addSymbol(library::Symbol& s) throw (Exception)
 {
-    addElement<Symbol>(s, mSymbols, mRemovedSymbols);
+    addElement<Symbol>(s, mSymbols, mAddedSymbols, mRemovedSymbols);
 }
 
-void ProjectLibrary::addFootprint(const library::Footprint& f) throw (Exception)
+void ProjectLibrary::addSpiceModel(library::SpiceModel& m) throw (Exception)
 {
-    addElement<Footprint>(f, mFootprints, mRemovedFootprints);
+    addElement<SpiceModel>(m, mSpiceModels, mAddedSpiceModels, mRemovedSpiceModels);
 }
 
-void ProjectLibrary::add3dModel(const library::Model3D& m) throw (Exception)
+void ProjectLibrary::addPackage(library::Package& p) throw (Exception)
 {
-    addElement<Model3D>(m, mModels, mRemovedModels);
+    addElement<Package>(p, mPackages, mAddedPackages, mRemovedPackages);
 }
 
-void ProjectLibrary::addSpiceModel(const library::SpiceModel& m) throw (Exception)
+void ProjectLibrary::addComponent(library::Component& c) throw (Exception)
 {
-    addElement<SpiceModel>(m, mSpiceModels, mRemovedSpiceModels);
+    addElement<Component>(c, mComponents, mAddedComponents, mRemovedComponents);
 }
 
-void ProjectLibrary::addPackage(const library::Package& p) throw (Exception)
+void ProjectLibrary::addDevice(library::Device& d) throw (Exception)
 {
-    addElement<Package>(p, mPackages, mRemovedPackages);
+    addElement<Device>(d, mDevices, mAddedDevices, mRemovedDevices);
 }
 
-void ProjectLibrary::addGenComp(const library::GenericComponent& gc) throw (Exception)
+void ProjectLibrary::removeSymbol(library::Symbol& s) throw (Exception)
 {
-    addElement<GenericComponent>(gc, mGenericComponents, mRemovedGenericComponents);
+    removeElement<Symbol>(s, mSymbols, mAddedSymbols, mRemovedSymbols);
 }
 
-void ProjectLibrary::addComp(const library::Component& c) throw (Exception)
+void ProjectLibrary::removeSpiceModel(library::SpiceModel& m) throw (Exception)
 {
-    addElement<Component>(c, mComponents, mRemovedComponents);
+    removeElement<SpiceModel>(m, mSpiceModels, mAddedSpiceModels, mRemovedSpiceModels);
 }
 
-void ProjectLibrary::removeSymbol(const library::Symbol& s) throw (Exception)
+void ProjectLibrary::removePackage(library::Package& p) throw (Exception)
 {
-    removeElement<Symbol>(s, mSymbols, mRemovedSymbols);
+    removeElement<Package>(p, mPackages, mAddedPackages, mRemovedPackages);
 }
 
-void ProjectLibrary::removeFootprint(const library::Footprint& f) throw (Exception)
+void ProjectLibrary::removeComponent(library::Component& c) throw (Exception)
 {
-    removeElement<Footprint>(f, mFootprints, mRemovedFootprints);
+    removeElement<Component>(c, mComponents, mAddedComponents, mRemovedComponents);
 }
 
-void ProjectLibrary::remove3dModel(const library::Model3D& m) throw (Exception)
+void ProjectLibrary::removeDevice(library::Device& d) throw (Exception)
 {
-    removeElement<Model3D>(m, mModels, mRemovedModels);
-}
-
-void ProjectLibrary::removeSpiceModel(const library::SpiceModel& m) throw (Exception)
-{
-    removeElement<SpiceModel>(m, mSpiceModels, mRemovedSpiceModels);
-}
-
-void ProjectLibrary::removePackage(const library::Package& p) throw (Exception)
-{
-    removeElement<Package>(p, mPackages, mRemovedPackages);
-}
-
-void ProjectLibrary::removeGenComp(const library::GenericComponent& gc) throw (Exception)
-{
-    removeElement<GenericComponent>(gc, mGenericComponents, mRemovedGenericComponents);
-}
-
-void ProjectLibrary::removeComp(const library::Component& c) throw (Exception)
-{
-    removeElement<Component>(c, mComponents, mRemovedComponents);
+    removeElement<Device>(d, mDevices, mAddedDevices, mRemovedDevices);
 }
 
 
@@ -245,19 +209,15 @@ bool ProjectLibrary::save(bool toOriginal, QStringList& errors) noexcept
     bool success = true;
 
     // Save all elements
-    if (!saveElements<Symbol>(toOriginal, errors, mLibraryPath.getPathTo("sym"), mSymbols, mRemovedSymbols))
+    if (!saveElements<Symbol>(toOriginal, errors, mLibraryPath.getPathTo("sym"), mSymbols, mAddedSymbols, mRemovedSymbols))
         success = false;
-    if (!saveElements<Footprint>(toOriginal, errors, mLibraryPath.getPathTo("fpt"), mFootprints, mRemovedFootprints))
+    if (!saveElements<SpiceModel>(toOriginal, errors, mLibraryPath.getPathTo("spcmdl"), mSpiceModels, mAddedSpiceModels, mRemovedSpiceModels))
         success = false;
-    if (!saveElements<Model3D>(toOriginal, errors, mLibraryPath.getPathTo("3dmdl"), mModels, mRemovedModels))
+    if (!saveElements<Package>(toOriginal, errors, mLibraryPath.getPathTo("pkg"), mPackages, mAddedPackages, mRemovedPackages))
         success = false;
-    if (!saveElements<SpiceModel>(toOriginal, errors, mLibraryPath.getPathTo("spcmdl"), mSpiceModels, mRemovedSpiceModels))
+    if (!saveElements<Component>(toOriginal, errors, mLibraryPath.getPathTo("cmp"), mComponents, mAddedComponents, mRemovedComponents))
         success = false;
-    if (!saveElements<Package>(toOriginal, errors, mLibraryPath.getPathTo("pkg"), mPackages, mRemovedPackages))
-        success = false;
-    if (!saveElements<GenericComponent>(toOriginal, errors, mLibraryPath.getPathTo("gencmp"), mGenericComponents, mRemovedGenericComponents))
-        success = false;
-    if (!saveElements<Component>(toOriginal, errors, mLibraryPath.getPathTo("cmp"), mComponents, mRemovedComponents))
+    if (!saveElements<Device>(toOriginal, errors, mLibraryPath.getPathTo("dev"), mDevices, mAddedDevices, mRemovedDevices))
         success = false;
 
     return success;
@@ -269,7 +229,7 @@ bool ProjectLibrary::save(bool toOriginal, QStringList& errors) noexcept
 
 template <typename ElementType>
 void ProjectLibrary::loadElements(const FilePath& directory, const QString& type,
-                                  QHash<QUuid, const ElementType*>& elementList) throw (Exception)
+                                  QHash<Uuid, ElementType*>& elementList) throw (Exception)
 {
     QDir dir(directory.toStr());
 
@@ -288,11 +248,11 @@ void ProjectLibrary::loadElements(const FilePath& directory, const QString& type
         }
 
         // load the library element --> an exception will be thrown on error
-        ElementType* element = new ElementType(subdirPath);
+        ElementType* element = new ElementType(subdirPath, false);
 
         if (elementList.contains(element->getUuid()))
         {
-            throw RuntimeError(__FILE__, __LINE__, element->getUuid().toString(),
+            throw RuntimeError(__FILE__, __LINE__, element->getUuid().toStr(),
                 QString(tr("There are multiple library elements with the same "
                 "UUID in the directory \"%1\"")).arg(subdirPath.toNative()));
         }
@@ -304,55 +264,69 @@ void ProjectLibrary::loadElements(const FilePath& directory, const QString& type
 }
 
 template <typename ElementType>
-void ProjectLibrary::addElement(const ElementType& element,
-                                QHash<QUuid, const ElementType*>& elementList,
-                                QHash<QUuid, const ElementType*>& removedElementsList) throw (Exception)
+void ProjectLibrary::addElement(ElementType& element,
+                                QHash<Uuid, ElementType*>& elementList,
+                                QList<ElementType*>& addedElementsList,
+                                QList<ElementType*>& removedElementsList) throw (Exception)
 {
-    if (elementList.contains(element.getUuid()))
-    {
+    if (elementList.contains(element.getUuid())) {
         throw LogicError(__FILE__, __LINE__, QString(), QString(tr(
             "There is already an element with the same UUID in the project's library: %1"))
-            .arg(element.getUuid().toString()));
+            .arg(element.getUuid().toStr()));
     }
-
-    if (removedElementsList.contains(element.getUuid()))
-    {
-        Q_ASSERT(removedElementsList.value(element.getUuid()) == &element);
-        removedElementsList.remove(element.getUuid());
+    if (removedElementsList.contains(&element)) {
+        removedElementsList.removeOne(&element);
+    } else {
+        element.saveTo(FilePath::getRandomTempPath());
     }
     elementList.insert(element.getUuid(), &element);
+    addedElementsList.append(&element);
 }
 
 template <typename ElementType>
-void ProjectLibrary::removeElement(const ElementType& element,
-                                   QHash<QUuid, const ElementType*>& elementList,
-                                   QHash<QUuid, const ElementType*>& removedElementsList) throw (Exception)
+void ProjectLibrary::removeElement(ElementType& element,
+                                   QHash<Uuid, ElementType*>& elementList,
+                                   QList<ElementType*>& addedElementsList,
+                                   QList<ElementType*>& removedElementsList) throw (Exception)
 {
     Q_ASSERT(elementList.value(element.getUuid()) == &element);
-    Q_ASSERT(!removedElementsList.contains(element.getUuid()));
+    Q_ASSERT(!removedElementsList.contains(&element));
     elementList.remove(element.getUuid());
-    removedElementsList.insert(element.getUuid(), &element);
+    addedElementsList.removeOne(&element);
+    removedElementsList.append(&element);
 }
 
 template <typename ElementType>
 bool ProjectLibrary::saveElements(bool toOriginal, QStringList& errors, const FilePath& parentDir,
-                                  QHash<QUuid, const ElementType*>& elementList,
-                                  QHash<QUuid, const ElementType*>& removedElementsList) noexcept
+                                  QHash<Uuid, ElementType*>& elementList,
+                                  QList<ElementType*>& addedElementsList,
+                                  QList<ElementType*>& removedElementsList) noexcept
 {
-    Q_UNUSED(toOriginal);
-    Q_UNUSED(removedElementsList);
-
     bool success = true;
 
-    foreach (const ElementType* element, elementList)
-    {
-        try
-        {
-            if (element->getDirectory().getParentDir().getParentDir().toStr() != mLibraryPath.toStr())
-                element->saveTo(parentDir);
+    if (toOriginal) {
+        foreach (ElementType* element, removedElementsList) {
+            try {
+                if (element->getFilePath().getParentDir().getParentDir() == mLibraryPath) {
+                    element->moveTo(FilePath::getRandomTempPath());
+                }
+            }
+            catch (Exception& e) {
+                success = false;
+                errors.append(e.getUserMsg());
+            }
         }
-        catch (Exception& e)
-        {
+    }
+
+    foreach (ElementType* element, elementList) {
+        try {
+            if (element->getFilePath().getParentDir().getParentDir() != mLibraryPath) {
+                element->moveTo(parentDir);
+            }
+            if (toOriginal && addedElementsList.contains(element))
+                addedElementsList.removeOne(element);
+        }
+        catch (Exception& e) {
             success = false;
             errors.append(e.getUserMsg());
         }
@@ -362,17 +336,19 @@ bool ProjectLibrary::saveElements(bool toOriginal, QStringList& errors, const Fi
 }
 
 template <typename ElementType>
-void ProjectLibrary::cleanupRemovedElements(QHash<QUuid, const ElementType*>& removedElementsList) noexcept
+void ProjectLibrary::cleanupElements(QList<ElementType*>& addedElementsList,
+                                     QList<ElementType*>& removedElementsList) noexcept
 {
-    foreach (const ElementType* element, removedElementsList)
-    {
-        if (element->getDirectory().getParentDir().getParentDir().toStr() == mLibraryPath.toStr())
-        {
-            QDir dir(element->getDirectory().toStr());
+    QList<ElementType*> combined;
+    combined.append(addedElementsList);
+    combined.append(removedElementsList);
+    foreach (ElementType* element, combined) {
+        if (element->getFilePath().getParentDir().getParentDir() == mLibraryPath) {
+            QDir dir(element->getFilePath().toStr());
             dir.removeRecursively();
         }
-        delete removedElementsList.take(element->getUuid());
     }
+    qDeleteAll(removedElementsList);        removedElementsList.clear();
 }
 
 /*****************************************************************************************
@@ -380,3 +356,4 @@ void ProjectLibrary::cleanupRemovedElements(QHash<QUuid, const ElementType*>& re
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

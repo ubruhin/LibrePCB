@@ -20,66 +20,63 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetlineadd.h"
 #include "../schematic.h"
 #include "../items/si_netline.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
  *  Constructors / Destructor
  ****************************************************************************************/
 
+CmdSchematicNetLineAdd::CmdSchematicNetLineAdd(SI_NetLine& netline) noexcept :
+    UndoCommand(tr("Add netline")),
+    mSchematic(netline.getSchematic()), mStartPoint(netline.getStartPoint()),
+    mEndPoint(netline.getEndPoint()), mNetLine(&netline)
+{
+}
+
 CmdSchematicNetLineAdd::CmdSchematicNetLineAdd(Schematic& schematic, SI_NetPoint& startPoint,
-                                               SI_NetPoint& endPoint, UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add netline"), parent),
-    mSchematic(schematic), mStartPoint(startPoint), mEndPoint(endPoint), mNetLine(0)
+                                               SI_NetPoint& endPoint) noexcept :
+    UndoCommand(tr("Add netline")),
+    mSchematic(schematic), mStartPoint(startPoint), mEndPoint(endPoint), mNetLine(nullptr)
 {
 }
 
 CmdSchematicNetLineAdd::~CmdSchematicNetLineAdd() noexcept
 {
-    if ((mNetLine) && (!isExecuted()))
-        delete mNetLine;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetLineAdd::redo() throw (Exception)
+bool CmdSchematicNetLineAdd::performExecute() throw (Exception)
 {
-    if (!mNetLine) // only the first time
-        mNetLine = mSchematic.createNetLine(mStartPoint, mEndPoint, Length(158750)); // throws an exception on error
-
-    mSchematic.addNetLine(*mNetLine); // throws an exception on error
-
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
+    if (!mNetLine) {
+        // create new netline
+        mNetLine = new SI_NetLine(mSchematic, mStartPoint, mEndPoint, Length(158750)); // can throw
     }
-    catch (Exception &e)
-    {
-        mSchematic.removeNetLine(*mNetLine);
-        throw;
-    }
+
+    performRedo(); // can throw
+
+    return true;
 }
 
-void CmdSchematicNetLineAdd::undo() throw (Exception)
+void CmdSchematicNetLineAdd::performUndo() throw (Exception)
 {
-    mSchematic.removeNetLine(*mNetLine); // throws an exception on error
+    mSchematic.removeNetLine(*mNetLine); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mSchematic.addNetLine(*mNetLine);
-        throw;
-    }
+void CmdSchematicNetLineAdd::performRedo() throw (Exception)
+{
+    mSchematic.addNetLine(*mNetLine); // can throw
 }
 
 /*****************************************************************************************
@@ -87,3 +84,4 @@ void CmdSchematicNetLineAdd::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

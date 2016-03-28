@@ -17,15 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SCHEMATICLAYER_H
-#define SCHEMATICLAYER_H
+#ifndef LIBREPCB_SCHEMATICLAYER_H
+#define LIBREPCB_SCHEMATICLAYER_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include <QtWidgets>
+
+/*****************************************************************************************
+ *  Namespace / Forward Declarations
+ ****************************************************************************************/
+namespace librepcb {
 
 /*****************************************************************************************
  *  Class SchematicLayer
@@ -71,7 +75,7 @@ class SchematicLayer final : public QObject
             DEBUG_SymbolPinNetSignalNames           = 902,
             DEBUG_NetLinesNetSignalNames            = 903,
             DEBUG_InvisibleNetPoints                = 904,
-            DEBUG_GenCompSymbolsCount               = 905,
+            DEBUG_ComponentSymbolsCount               = 905,
 #endif
 
             // Begin of User defined Layers
@@ -132,4 +136,10 @@ class SchematicLayer final : public QObject
 
 */
 
-#endif // SCHEMATICLAYER_H
+/*****************************************************************************************
+ *  End of File
+ ****************************************************************************************/
+
+} // namespace librepcb
+
+#endif // LIBREPCB_SCHEMATICLAYER_H

@@ -20,7 +20,6 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "ses_addnetlabel.h"
 #include "../schematiceditor.h"
@@ -34,6 +33,10 @@
 #include <librepcbproject/schematics/items/si_netline.h>
 #include <librepcbcommon/gridproperties.h>
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -89,7 +92,7 @@ bool SES_AddNetLabel::exit(SEE_Base* event) noexcept
     {
         try
         {
-            mUndoStack.abortCommand();
+            mUndoStack.abortCmdGroup();
             mUndoCmdActive = false;
         }
         catch (Exception& e)
@@ -133,9 +136,26 @@ SES_Base::ProcRetVal SES_AddNetLabel::processSceneEvent(SEE_Base* event) noexcep
                     return ForceStayInState;
                 }
                 case Qt::RightButton:
-                {
-                    mEditCmd->rotate(Angle::deg90(), pos, true);
                     return ForceStayInState;
+                default:
+                    break;
+            }
+            break;
+        }
+
+        case QEvent::GraphicsSceneMouseRelease:
+        {
+            QGraphicsSceneMouseEvent* sceneEvent = dynamic_cast<QGraphicsSceneMouseEvent*>(qevent);
+            Point pos = Point::fromPx(sceneEvent->scenePos(), mEditor.getGridProperties().getInterval());
+            switch (sceneEvent->button())
+            {
+                case Qt::RightButton:
+                {
+                    if (sceneEvent->screenPos() == sceneEvent->buttonDownScreenPos(Qt::RightButton)) {
+                        mEditCmd->rotate(Angle::deg90(), pos, true);
+                        return ForceStayInState;
+                    }
+                    break;
                 }
                 default:
                     break;
@@ -164,14 +184,14 @@ bool SES_AddNetLabel::addLabel(Schematic& schematic) noexcept
 
     try
     {
-        NetSignal* signal = mCircuit.getNetSignals().values().first();
-        if (!signal)
+        if (mCircuit.getNetSignals().isEmpty()) {
             throw RuntimeError(__FILE__, __LINE__, QString(), tr("No net signal found."));
-
-        mUndoStack.beginCommand(tr("Add net label to schematic"));
+        }
+        NetSignal* signal = mCircuit.getNetSignals().values().first();
+        mUndoStack.beginCmdGroup(tr("Add net label to schematic"));
         mUndoCmdActive = true;
         CmdSchematicNetLabelAdd* cmdAdd = new CmdSchematicNetLabelAdd(schematic, *signal, Point());
-        mUndoStack.appendToCommand(cmdAdd);
+        mUndoStack.appendToCmdGroup(cmdAdd);
         mCurrentNetLabel = cmdAdd->getNetLabel();
         mEditCmd = new CmdSchematicNetLabelEdit(*mCurrentNetLabel);
         return true;
@@ -180,7 +200,7 @@ bool SES_AddNetLabel::addLabel(Schematic& schematic) noexcept
     {
         if (mUndoCmdActive)
         {
-            try {mUndoStack.abortCommand();} catch (...) {}
+            try {mUndoStack.abortCmdGroup();} catch (...) {}
             mUndoCmdActive = false;
         }
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
@@ -196,7 +216,7 @@ bool SES_AddNetLabel::updateLabel(Schematic& schematic, const Point& pos) noexce
     {
         // get netline under cursor
         QList<SI_NetLine*> lines = schematic.getNetLinesAtScenePos(pos);
-        if (!lines.isEmpty()) mEditCmd->setNetSignal(*lines.first()->getNetSignal(), true);
+        if (!lines.isEmpty()) mEditCmd->setNetSignal(lines.first()->getNetSignal(), true);
         mEditCmd->setPosition(pos, true);
         return true;
     }
@@ -214,8 +234,8 @@ bool SES_AddNetLabel::fixLabel(const Point& pos) noexcept
     try
     {
         mEditCmd->setPosition(pos, false);
-        mUndoStack.appendToCommand(mEditCmd);
-        mUndoStack.endCommand();
+        mUndoStack.appendToCmdGroup(mEditCmd);
+        mUndoStack.commitCmdGroup();
         mUndoCmdActive = false;
         return true;
     }
@@ -223,7 +243,7 @@ bool SES_AddNetLabel::fixLabel(const Point& pos) noexcept
     {
         if (mUndoCmdActive)
         {
-            try {mUndoStack.abortCommand();} catch (...) {}
+            try {mUndoStack.abortCmdGroup();} catch (...) {}
             mUndoCmdActive = false;
         }
         QMessageBox::critical(&mEditor, tr("Error"), e.getUserMsg());
@@ -236,3 +256,4 @@ bool SES_AddNetLabel::fixLabel(const Point& pos) noexcept
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

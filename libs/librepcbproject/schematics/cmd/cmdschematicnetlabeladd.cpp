@@ -20,12 +20,15 @@
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
-
 #include <QtCore>
 #include "cmdschematicnetlabeladd.h"
 #include "../schematic.h"
 #include "../items/si_netlabel.h"
 
+/*****************************************************************************************
+ *  Namespace
+ ****************************************************************************************/
+namespace librepcb {
 namespace project {
 
 /*****************************************************************************************
@@ -33,55 +36,37 @@ namespace project {
  ****************************************************************************************/
 
 CmdSchematicNetLabelAdd::CmdSchematicNetLabelAdd(Schematic& schematic, NetSignal& netsignal,
-                                                 const Point& position, UndoCommand* parent) throw (Exception) :
-    UndoCommand(tr("Add netlabel"), parent),
+                                                 const Point& position) noexcept :
+    UndoCommand(tr("Add netlabel")),
     mSchematic(schematic), mNetSignal(&netsignal), mPosition(position), mNetLabel(nullptr)
 {
 }
 
 CmdSchematicNetLabelAdd::~CmdSchematicNetLabelAdd() noexcept
 {
-    if ((mNetLabel) && (!isExecuted()))
-        delete mNetLabel;
 }
 
 /*****************************************************************************************
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-void CmdSchematicNetLabelAdd::redo() throw (Exception)
+bool CmdSchematicNetLabelAdd::performExecute() throw (Exception)
 {
-    if (!mNetLabel) // only the first time
-    {
-        mNetLabel = mSchematic.createNetLabel(*mNetSignal, mPosition); // throws an exception on error
-    }
+    mNetLabel = new SI_NetLabel(mSchematic, *mNetSignal, mPosition); // can throw
 
-    mSchematic.addNetLabel(*mNetLabel); // throws an exception on error
+    performRedo(); // can throw
 
-    try
-    {
-        UndoCommand::redo(); // throws an exception on error
-    }
-    catch (Exception &e)
-    {
-        mSchematic.removeNetLabel(*mNetLabel);
-        throw;
-    }
+    return true;
 }
 
-void CmdSchematicNetLabelAdd::undo() throw (Exception)
+void CmdSchematicNetLabelAdd::performUndo() throw (Exception)
 {
-    mSchematic.removeNetLabel(*mNetLabel); // throws an exception on error
+    mSchematic.removeNetLabel(*mNetLabel); // can throw
+}
 
-    try
-    {
-        UndoCommand::undo();
-    }
-    catch (Exception& e)
-    {
-        mSchematic.addNetLabel(*mNetLabel);
-        throw;
-    }
+void CmdSchematicNetLabelAdd::performRedo() throw (Exception)
+{
+    mSchematic.addNetLabel(*mNetLabel); // can throw
 }
 
 /*****************************************************************************************
@@ -89,3 +74,4 @@ void CmdSchematicNetLabelAdd::undo() throw (Exception)
  ****************************************************************************************/
 
 } // namespace project
+} // namespace librepcb

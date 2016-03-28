@@ -47,9 +47,33 @@ SOURCES += \
     boardeditor/fsm/bes_select.cpp \
     dialogs/editnetclassesdialog.cpp \
     dialogs/projectpropertieseditordialog.cpp \
-    dialogs/addgencompdialog.cpp \
     dialogs/projectsettingsdialog.cpp \
-    docks/ercmsgdock.cpp
+    docks/ercmsgdock.cpp \
+    dialogs/addcomponentdialog.cpp \
+    boardeditor/boardlayersdock.cpp \
+    cmd/cmdaddcomponenttocircuit.cpp \
+    cmd/cmdaddsymboltoschematic.cpp \
+    cmd/cmdadddevicetoboard.cpp \
+    cmd/cmdcombinenetsignals.cpp \
+    cmd/cmdremoveselectedschematicitems.cpp \
+    cmd/cmdcombineschematicnetpoints.cpp \
+    cmd/cmdrotateselectedschematicitems.cpp \
+    cmd/cmdmoveselectedschematicitems.cpp \
+    cmd/cmdmoveselectedboarditems.cpp \
+    cmd/cmdrotateselectedboarditems.cpp \
+    cmd/cmdflipselectedboarditems.cpp \
+    cmd/cmdremoveselectedboarditems.cpp \
+    cmd/cmdreplacedevice.cpp \
+    cmd/cmdplaceschematicnetpoint.cpp \
+    cmd/cmdcombineallnetsignalsunderschematicnetpoint.cpp \
+    cmd/cmdremoveunusednetsignals.cpp \
+    boardeditor/fsm/bes_drawtrace.cpp \
+    boardeditor/fsm/bes_addvia.cpp \
+    cmd/cmdplaceboardnetpoint.cpp \
+    cmd/cmdcombineboardnetpoints.cpp \
+    cmd/cmdcombineallitemsunderboardnetpoint.cpp \
+    boardeditor/boardviapropertiesdialog.cpp \
+    boardeditor/fsm/bes_adddevice.cpp
 
 HEADERS += \
     projecteditor.h \
@@ -78,9 +102,33 @@ HEADERS += \
     boardeditor/fsm/bes_select.h \
     dialogs/editnetclassesdialog.h \
     dialogs/projectpropertieseditordialog.h \
-    dialogs/addgencompdialog.h \
     dialogs/projectsettingsdialog.h \
-    docks/ercmsgdock.h
+    docks/ercmsgdock.h \
+    dialogs/addcomponentdialog.h \
+    boardeditor/boardlayersdock.h \
+    cmd/cmdaddcomponenttocircuit.h \
+    cmd/cmdaddsymboltoschematic.h \
+    cmd/cmdadddevicetoboard.h \
+    cmd/cmdcombinenetsignals.h \
+    cmd/cmdremoveselectedschematicitems.h \
+    cmd/cmdcombineschematicnetpoints.h \
+    cmd/cmdrotateselectedschematicitems.h \
+    cmd/cmdmoveselectedschematicitems.h \
+    cmd/cmdmoveselectedboarditems.h \
+    cmd/cmdrotateselectedboarditems.h \
+    cmd/cmdflipselectedboarditems.h \
+    cmd/cmdremoveselectedboarditems.h \
+    cmd/cmdreplacedevice.h \
+    cmd/cmdplaceschematicnetpoint.h \
+    cmd/cmdcombineallnetsignalsunderschematicnetpoint.h \
+    cmd/cmdremoveunusednetsignals.h \
+    boardeditor/fsm/bes_drawtrace.h \
+    boardeditor/fsm/bes_addvia.h \
+    cmd/cmdplaceboardnetpoint.h \
+    cmd/cmdcombineboardnetpoints.h \
+    cmd/cmdcombineallitemsunderboardnetpoint.h \
+    boardeditor/boardviapropertiesdialog.h \
+    boardeditor/fsm/bes_adddevice.h
 
 FORMS += \
     schematiceditor/schematiceditor.ui \
@@ -90,7 +138,9 @@ FORMS += \
     boardeditor/unplacedcomponentsdock.ui \
     dialogs/editnetclassesdialog.ui \
     dialogs/projectpropertieseditordialog.ui \
-    dialogs/addgencompdialog.ui \
     dialogs/projectsettingsdialog.ui \
-    docks/ercmsgdock.ui
+    docks/ercmsgdock.ui \
+    dialogs/addcomponentdialog.ui \
+    boardeditor/boardlayersdock.ui \
+    boardeditor/boardviapropertiesdialog.ui
 
