@@ -70,6 +70,7 @@ script:
 
 # run doxygen and upload the html output to github (gh-pages of LibrePCB-Doxygen)
 after_success:
+  - bash <(curl -s https://codecov.io/bash)
   - |
     if [ "${TRAVIS_PULL_REQUEST}" = "false" -a "${BUILD_DOXYGEN}" = "true" ]
     then 
