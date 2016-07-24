@@ -33,6 +33,7 @@
 #include <librepcb/project/schematics/cmd/cmdsymbolinstanceedit.h>
 #include <librepcb/project/schematics/cmd/cmdschematicnetlabeledit.h>
 #include <librepcb/project/schematics/cmd/cmdschematicnetpointedit.h>
+#include <librepcb/project/schematics/schematicselectionquery.h>
 
 /*****************************************************************************************
  *  Namespace
@@ -51,35 +52,26 @@ CmdMoveSelectedSchematicItems::CmdMoveSelectedSchematicItems(Schematic& schemati
     mSchematic(schematic), mStartPos(startPos), mDeltaPos(0, 0)
 {
     // get all selected items
-    QList<SI_Base*> items = mSchematic.getSelectedItems(false, true, false, true, false, false,
-                                                        false, false, false, false, false);
+    QScopedPointer<SchematicSelectionQuery> query(mSchematic.createSelectionQuery());
+    query->addSelectedSymbols();
+    query->addSelectedNetPoints(SchematicSelectionQuery::NetPointFilter::Floating);
+    query->addSelectedNetLines(SchematicSelectionQuery::NetLineFilter::All);
+    query->addSelectedNetLabels();
+    query->addNetPointsOfNetLines(SchematicSelectionQuery::NetLineFilter::All,
+                                  SchematicSelectionQuery::NetPointFilter::Floating);
 
-    foreach (SI_Base* item, items) {
-        switch (item->getType())
-        {
-            case SI_Base::Type_t::Symbol: {
-                SI_Symbol* symbol = dynamic_cast<SI_Symbol*>(item); Q_ASSERT(symbol);
-                CmdSymbolInstanceEdit* cmd = new CmdSymbolInstanceEdit(*symbol);
-                mSymbolEditCmds.append(cmd);
-                break;
-            }
-            case SI_Base::Type_t::NetPoint: {
-                SI_NetPoint* point = dynamic_cast<SI_NetPoint*>(item); Q_ASSERT(point);
-                CmdSchematicNetPointEdit* cmd = new CmdSchematicNetPointEdit(*point);
-                mNetPointEditCmds.append(cmd);
-                break;
-            }
-            case SI_Base::Type_t::NetLabel: {
-                SI_NetLabel* label = dynamic_cast<SI_NetLabel*>(item); Q_ASSERT(label);
-                CmdSchematicNetLabelEdit* cmd = new CmdSchematicNetLabelEdit(*label);
-                mNetLabelEditCmds.append(cmd);
-                break;
-            }
-            default: {
-                qCritical() << "Unknown schematic item type:" << static_cast<int>(item->getType());
-                break;
-            }
-        }
+    // create undo commands
+    foreach (SI_Symbol* symbol, query->getSymbols()) {
+        CmdSymbolInstanceEdit* cmd = new CmdSymbolInstanceEdit(*symbol);
+        mSymbolEditCmds.append(cmd);
+    }
+    foreach (SI_NetPoint* netpoint, query->getNetPoints()) {
+        CmdSchematicNetPointEdit* cmd = new CmdSchematicNetPointEdit(*netpoint);
+        mNetPointEditCmds.append(cmd);
+    }
+    foreach (SI_NetLabel* netlabel, query->getNetLabels()) {
+        CmdSchematicNetLabelEdit* cmd = new CmdSchematicNetLabelEdit(*netlabel);
+        mNetLabelEditCmds.append(cmd);
     }
 }
 
