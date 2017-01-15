@@ -52,13 +52,18 @@ Library::Library(const Uuid& uuid, const Version& version, const QString& author
 }
 
 Library::Library(const FilePath& libDir, bool readOnly) throw (Exception) :
-    LibraryBaseElement(libDir, false, "lib", "library", readOnly)
+    LibraryBaseElement(libDir, false, "lib", "library", readOnly), mLock(mDirectory)
 {
     // check directory suffix
     if (libDir.getSuffix() != "lplib") {
         throw RuntimeError(__FILE__, __LINE__, QString(),
             QString(tr("The library directory does not have the suffix '.lplib':\n\n%1"))
             .arg(libDir.toNative()));
+    }
+
+    // get directory lock
+    if (!mOpenedReadOnly) {
+        mLock.tryLock(); // can throw
     }
 
     // read properties
@@ -84,7 +89,6 @@ Library::Library(const FilePath& libDir, bool readOnly) throw (Exception) :
 Library::~Library() noexcept
 {
 }
-
 
 /*****************************************************************************************
  *  General Methods
@@ -145,8 +149,15 @@ void Library::copyTo(const FilePath& destination, bool removeSource) throw (Exce
             QString(tr("A library directory name must have the suffix '.lplib'.")));
     }
 
+    // release lock of source directory
+    mLock.unlockIfLocked();
+
     // copy the element
     LibraryBaseElement::copyTo(destination, removeSource);
+
+    // get lock of destination directory
+    mLock.setDirToLock(mDirectory);
+    mLock.tryLock();
 }
 
 XmlDomElement* Library::serializeToXmlDomElement() const throw (Exception)

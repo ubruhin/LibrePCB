@@ -26,6 +26,7 @@
 #include <QtCore>
 #include <QtWidgets>
 #include <librepcb/common/uuid.h>
+#include <librepcb/common/fileio/directorylock.h>
 #include "librarybaseelement.h"
 
 /*****************************************************************************************
@@ -96,6 +97,7 @@ class Library final : public LibraryBaseElement
         QUrl mUrl;
         QList<Uuid> mDependencies;
         QPixmap mIcon;
+        DirectoryLock mLock; ///< lock for the whole library directory
 };
 
 /*****************************************************************************************
