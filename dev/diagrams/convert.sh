@@ -15,5 +15,8 @@ do
   sed -i -e 's/<text font-size=/<text xml:space="preserve" font-size=/g' "$outfile"
 done
 
-# update architecture overview diagram in doxygen documentation
+# update images in doxygen documentation
 inkscape -z -f svg/architecture_overview.svg -w 1000 -e ../doxygen/images/architecture_overview.png
+inkscape -z -f svg/library_structure.svg -w 1200 -e ../doxygen/images/library_structure.png
+inkscape -z -f svg/library_structure_overview.svg -w 1000 -e ../doxygen/images/library_structure_overview.png
+inkscape -z -f svg/library_structure_examples.svg -w 1800 -e ../doxygen/images/library_structure_examples.png
