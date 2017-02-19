@@ -44,4 +44,4 @@ all other files are not. This gives us maximum flexibility to change the file fo
 could even switch from XML to another file format some day).
 
 
-[version file]: #doc_versioning_file "Version Files"
+[version file]: #doc_versioning_file

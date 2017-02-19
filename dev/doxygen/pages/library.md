@@ -69,7 +69,7 @@ See [File Format Versioning] for more information about LibrePCB's file format v
 ## library.png
 
 This (optional) picture is displayed on different locations in the graphical user interface (e.g. in
-the library manager).
+the library manager). The dimensions of the image should be 256x256 pixels.
 
 ## library.xml
 
