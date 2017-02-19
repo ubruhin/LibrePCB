@@ -1,9 +1,27 @@
-Library Documentation {#doc_library}
+Library Specification {#doc_library}
 ====================================
 
 [TOC]
 
-![overview](library_structure.svg)
+# Library Elements {#doc_library_elements}
+
+The LibrePCB library system knows following elements:
+
+- [Component Category](@ref librepcb::library::ComponentCategory): Described [here](#doc_library_categories)
+- [Package Category](@ref librepcb::library::PackageCategory): Described [here](#doc_library_categories)
+- [Symbol](@ref librepcb::library::Symbol): Graphical item which can be added to schematics
+- [Package](@ref librepcb::library::Package): Graphical item which can be added to boards.
+- [Component](@ref librepcb::library::Component): Describes a generic (abstract) electrical device
+- [Device](@ref librepcb::library::Device): Represents a concrete (i.e. purchaseable) electrical device
+- SPICE Model: *Planned, but not yet implemented...*
+
+Following diagram shows these elements (except the two category elements) and how they work together:
+
+![Regular (non-category) library elements and their relations](library_structure.png)
+
+To get a better idea of how this works in practice, here some examples:
+
+![Real-world examples of library elements](library_structure_examples.png)
 
 # File Structure {#doc_library_file_structure}
 
@@ -82,11 +100,12 @@ corresponds to the element's [UUID]. The element directories contain following f
 # Identification of Library Elements {#doc_library_identification}
 
 Each library element (and also the library itself) gets a [UUID] at their creation. This [UUID] is
-then used to identify these elements. For example a librepcb::library::Device references to a
-librepcb::library::Package with the [UUID] of the package. This allows even to combine library
-elements across different repositories.
+then used to identify these elements. For example a librepcb::library::Device refers to a
+librepcb::library::Package with the [UUID] of the package. This allows to combine library elements
+even across different libraries (e.g. the Device and Package from the last example can be located
+in different libraries).
 
-To avoid broken dependencies, two rules needs to be followed:
+To avoid broken dependencies, two rules need to be followed:
 
 - The [UUID] of each library element must never change.
 - The "interface" of each library element must never change. For example the interface of a
@@ -94,15 +113,15 @@ To avoid broken dependencies, two rules needs to be followed:
   [UUID] or the meaning of pins changes, all librepcb::library::Component which have references to
   that librepcb::library::Symbol will break their functionality.
 
-If one of these things need to be changed, this must be done by creating a new element (with a new
+If one of these things needs to be changed, this must be done by creating a new element (with a new
 [UUID]) and (optionally) marking the original element as deprecated.
 
 
 # Internationalization of Library Elements {#doc_library_i18n}
 
 Each library element must contain English (`en_US`) texts (name, description, keywords, ...), other
-languages are optional. The user can define his favorite language in his workspace settings, and
-LibrePCB shows all library elements in this language (if available). English is always the fallback
+languages are optional. The user can define his preferred language in his workspace settings to make
+LibrePCB show all library elements in that language (if available). English is always the fallback
 language if the desired language is not available.
 
 
@@ -110,59 +129,37 @@ language if the desired language is not available.
 
 LibrePCB uses category elements to categorize all other library elements. Category elements are like
 normal library elements, but cannot be used in schematics or boards. Their only purpose is to
-provide a category tree in the libraries, where all the other library elements can be assigned to
-unlimited many categories.
+provide a category tree over all libraries, where all the other, regular library elements can be
+assigned to unlimited many of these categories.
 
-This system allows the user to choose other elements (like a librepcb::library::Component in a
+This system allows the user to choose regular elements (like a librepcb::library::Component in a
 librepcb::project::Schematic) by browsing through that category tree.
 
-There exist two types of categories, while all other element types use exactly one of them:
+![Relation between categories and regular library elements](library_structure_overview.png)
 
-- librepcb::library::ComponentCategory (e.g. "Diodes", "Resistors", ...) are used for:
+There exist two types of categories, while all regular element types use exactly one of them:
+
+- librepcb::library::ComponentCategory (e.g. "Diodes", "Resistors", ...) is used for:
     - librepcb::library::Symbol
     - librepcb::library::Component
     - librepcb::library::Device
-- librepcb::library::PackageCategory (e.g. "DIP", "TQFP", "BGA", ...) are used for:
+    - *SPICE Model, once implemented...*
+- librepcb::library::PackageCategory (e.g. "DIP", "TQFP", "BGA", ...) is used for:
     - librepcb::library::Package
+
+
+# Dependencies {#doc_library_dependencies}
+
+A library can have dependencies to other libraries. Therefore, a library needs to provide a list of
+library [UUID]s it depends on. We do not track dependencies between each single library element
+(Symbol, Component, ...) because that would be too complicated. We also do not take care of the
+required minimal library version of dependencies, because that would be hard to determine and
+maintain. The user should just update all his libraries at once to avoid broken dependencies.
+
+This simple system also requires to forbid removing elements from existing libraries, because this
+could break other libraries. So when a library element should no longer be used, it must be marked
+as deprecated instead of removing it.
 
 
 [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier "Universally Unique Identifier"
 [File Format Versioning]: @ref doc_versioning
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
