@@ -3,14 +3,19 @@ Repository Specification {#doc_repository}
 
 [TOC]
 
+This is the documentation of a LibrePCB repository. Such a repository is represented by an instance
+of the class librepcb::Repository.
+
+
 # Abstract
 
 A repository is a server which holds a list of available libraries. The libraries must be hosted
 somewhere as Zip files, for example on the Releases page of a GitHub repository. The library manager
 retrieves the library list from the repositories to display the available libraries. If the user
 wants to install such a library, the library manager just downloads these Zip files and extracts
-them into the [remote libraries directory] in the [workspace]. After an automatically triggered
-rescan of the [workspace library index], the library is ready to use.
+them into the [remote libraries directory](@ref doc_workspace_remote_dir) in the @ref workspace.
+After an automatically triggered rescan of the @ref doc_workspace_library_database, the library is
+ready to use.
 
 
 # Repository API
@@ -32,7 +37,4 @@ from where each client fetches new libraries and updates. There is no need to ma
 libraries or to host them on slow and unreliable network shares.
 
 
-[workspace]: @ref doc_workspace
-[workspace library index]: @ref doc_workspace_library_database
-[remote libraries directory]: @ref doc_workspace_remote_dir
 [api.librepcb.org]: http://api.librepcb.org "Official LibrePCB Repository"

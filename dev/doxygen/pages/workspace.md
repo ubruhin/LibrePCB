@@ -3,6 +3,10 @@ Workspace Specification {#doc_workspace}
 
 [TOC]
 
+This is the documentation of a LibrePCB workspace. Such a workspace is represented by an instance of
+the class librepcb::workspace::Workspace.
+
+
 # File Structure {#doc_workspace_file_structure}
 
 Basically, a workspace contains following entries:
@@ -19,9 +23,9 @@ Basically, a workspace contains following entries:
 ## .librepcb-workspace
 
 This file indicates that the directory is a LibrePCB workspace and also contains the file format
-version. See [File Format Versioning] for more information about LibrePCB's file format versioning
-system. Because the workspace is intended to be forward compatible (i.e. should be usable with all
-future LibrePCB releases), the workspace file format should always stay at `v0.1`.
+version. See @ref doc_versioning for more information about LibrePCB's file format versioning system.
+Because the workspace is intended to be forward compatible (i.e. should be usable with all future
+LibrePCB releases), the workspace file format should always stay at `v0.1`.
 
 ## projects/ {#doc_workspace_projects_dir}
 

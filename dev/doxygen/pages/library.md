@@ -3,6 +3,10 @@ Library Specification {#doc_library}
 
 [TOC]
 
+This is the documentation of a LibrePCB library. Such a library is represented by an instance of the
+class librepcb::library::Library.
+
+
 # Library Elements {#doc_library_elements}
 
 The LibrePCB library system knows following elements:
@@ -64,7 +68,7 @@ This tree shows the structure of a library directory:
 ## .librepcb-lib
 
 This file indicates that the directory is a LibrePCB library and also contains the file format version.
-See [File Format Versioning] for more information about LibrePCB's file format versioning system.
+See @ref doc_versioning for more information about LibrePCB's file format versioning system.
 
 ## library.png
 
@@ -92,7 +96,7 @@ All of these directories are optional. For example if a library does not provide
 Each library element inside these directories is represented by a subdirectory whose name
 corresponds to the element's [UUID]. The element directories contain following files:
 
-- An identification file (e.g. `.librepcb-cmp`) used for [File Format Versioning].
+- An identification file (e.g. `.librepcb-cmp`) used for @ref doc_versioning.
 - An XML file (e.g. `component.xml`) containing the actual library element (metadata, geometry, ...).
 - Depending on the element type, there may be more files (e.g. 3D models for Packages).
 
@@ -162,4 +166,3 @@ as deprecated instead of removing it.
 
 
 [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier "Universally Unique Identifier"
-[File Format Versioning]: @ref doc_versioning
