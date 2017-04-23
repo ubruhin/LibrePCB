@@ -31,6 +31,10 @@
 /*****************************************************************************************
  *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace pugi {
+class xml_node;
+}
+
 namespace librepcb {
 
 class XmlDomDocument;
@@ -415,16 +419,16 @@ class XmlDomElement final
                                       bool throwIfNotFound = false) const throw (Exception);
 
 
-        // QDomElement Converter Methods
+        // Converter Methods
 
         /**
-         * @brief Construct a QDomElement object from this XmlDomElement (recursively)
+         * @brief Construct a pugi::xml_node object from this XmlDomElement (recursively)
          *
-         * @param domDocument   The DOM Document of the newly created QDomElement
+         * @param parent    The parent node where this element will be appended
          *
-         * @return The created QDomElement (which is added to the specified DOM document)
+         * @throw Exception If an error occurs
          */
-        QDomElement toQDomElement(QDomDocument& domDocument) const noexcept;
+        void appendToPugiXmlNode(pugi::xml_node& parent) const throw (Exception);
 
         /**
          * @brief Construct a XmlDomElement object from a QDomElement object (recursively)
@@ -481,7 +485,7 @@ class XmlDomElement final
         QString mName;              ///< the tag name of this element
         QString mText;              ///< the text of this element (only if there are no childs)
         QList<XmlDomElement*> mChilds;      ///< all child elements (only if there is no text)
-        QHash<QString, QString> mAttributes;///< all attributes of this element (key, value) in arbitrary order
+        QMap<QString, QString> mAttributes;///< all attributes of this element (key, value) in alphabetical order
 };
 
 /*****************************************************************************************

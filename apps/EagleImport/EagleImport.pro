@@ -22,7 +22,8 @@ QT += core widgets xml
 LIBS += \
     -L$${DESTDIR} \
     -llibrepcblibrary \    # Note: The order of the libraries is very important for the linker!
-    -llibrepcbcommon       # Another order could end up in "undefined reference" errors!
+    -llibrepcbcommon \     # Another order could end up in "undefined reference" errors!
+    -lpugixml
 
 INCLUDEPATH += \
     ../../libs

@@ -48,6 +48,7 @@ LIBS += \
     -llibrepcbproject \
     -llibrepcblibrary \
     -llibrepcbcommon \
+    -lpugixml \
     -lquazip -lz
 
 INCLUDEPATH += \

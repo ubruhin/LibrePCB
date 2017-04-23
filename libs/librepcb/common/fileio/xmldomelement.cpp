@@ -22,6 +22,7 @@
  ****************************************************************************************/
 #include <QtCore>
 #include <QtWidgets>
+#include <pugixml.hpp>
 #include "xmldomelement.h"
 #include "xmldomdocument.h"
 #include "../units/all_length_units.h"
@@ -826,27 +827,24 @@ XmlDomElement* XmlDomElement::getNextSibling(const QString& name, bool throwIfNo
  *  QDomElement Converter Methods
  ****************************************************************************************/
 
-QDomElement XmlDomElement::toQDomElement(QDomDocument& domDocument) const noexcept
+void XmlDomElement::appendToPugiXmlNode(pugi::xml_node& parent) const throw (Exception)
 {
-    QDomElement element = domDocument.createElement(mName);
-
-    if (hasChilds())
-    {
-        foreach (XmlDomElement* child, mChilds)
-            element.appendChild(child->toQDomElement(domDocument));
+    pugi::xml_node element = parent.append_child(qPrintable(mName));
+    if (element.empty()) throw LogicError(__FILE__, __LINE__);
+    if (hasChilds()) {
+        foreach (XmlDomElement* child, mChilds) {
+            child->appendToPugiXmlNode(element); // can throw
+        }
+    } else if (!mText.isNull()) {
+        bool res = element.text().set(qPrintable(mText));
+        if (!res) throw LogicError(__FILE__, __LINE__);
     }
-    else if (!mText.isNull())
-    {
-        QDomText textNode = domDocument.createTextNode(mText);
-        element.appendChild(textNode);
+    foreach (const QString& key, mAttributes.keys()) {
+        pugi::xml_attribute attr = element.append_attribute(qPrintable(key));
+        if (attr.empty()) throw LogicError(__FILE__, __LINE__);
+        bool res = attr.set_value(qPrintable(mAttributes.value(key)));
+        if (!res) throw LogicError(__FILE__, __LINE__);
     }
-
-    foreach (const QString& key, mAttributes.keys())
-    {
-        element.setAttribute(key, mAttributes.value(key));
-    }
-
-    return element;
 }
 
 XmlDomElement* XmlDomElement::fromQDomElement(QDomElement domElement, XmlDomDocument* doc) noexcept

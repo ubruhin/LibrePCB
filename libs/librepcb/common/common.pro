@@ -24,6 +24,7 @@ QT += core widgets xml opengl network sql
 CONFIG += staticlib
 
 INCLUDEPATH += \
+    ../../pugixml/src \
     ../../quazip
 
 SOURCES += \

@@ -21,6 +21,8 @@
  *  Includes
  ****************************************************************************************/
 #include <QtCore>
+#include <sstream>
+#include <pugixml.hpp>
 #include "xmldomdocument.h"
 #include "xmldomelement.h"
 
@@ -89,13 +91,16 @@ XmlDomElement& XmlDomDocument::getRoot(const QString& expectedName) const throw 
  *  General Methods
  ****************************************************************************************/
 
-QByteArray XmlDomDocument::toByteArray() const noexcept
+QByteArray XmlDomDocument::toByteArray() const throw (Exception)
 {
-    QDomDocument doc;
-    doc.implementation().setInvalidDataPolicy(QDomImplementation::ReturnNullNode);
-    doc.setContent(QString("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"));
-    doc.appendChild(mRootElement->toQDomElement(doc));
-    return doc.toByteArray(1); // indent only 1 space to save disk space
+    pugi::xml_document doc;
+    static const char* decl = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
+    pugi::xml_parse_result res = doc.load_string(decl, pugi::parse_full);
+    if (res.status != pugi::status_no_document_element) throw LogicError(__FILE__, __LINE__);
+    mRootElement->appendToPugiXmlNode(doc); // can throw
+    std::stringstream s;
+    doc.print(s, " ", pugi::format_indent | pugi::format_no_empty_element_tags);
+    return QByteArray(s.str().data(), s.str().size());
 }
 
 /*****************************************************************************************
