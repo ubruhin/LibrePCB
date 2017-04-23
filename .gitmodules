@@ -10,3 +10,6 @@
 [submodule "libs/googletest"]
 	path = libs/googletest
 	url = https://github.com/LibrePCB/googletest.git
+[submodule "libs/pugixml"]
+	path = libs/pugixml
+	url = https://github.com/LibrePCB/pugixml.git
