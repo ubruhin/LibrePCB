@@ -22,6 +22,7 @@
  ****************************************************************************************/
 #include <QtCore>
 #include <QtWidgets>
+#include <rapidxml.hpp>
 #include "xmldomelement.h"
 #include "xmldomdocument.h"
 #include "../units/all_length_units.h"
@@ -852,6 +853,24 @@ QDomElement XmlDomElement::toQDomElement(QDomDocument& domDocument) const noexce
 XmlDomElement* XmlDomElement::fromQDomElement(QDomElement domElement, XmlDomDocument* doc) noexcept
 {
     return new XmlDomElement(domElement, nullptr, doc);
+}
+
+rapidxml::xml_node<char>* XmlDomElement::toRapidXmlNode(rapidxml::xml_document<char>& doc) const noexcept
+{
+    rapidxml::xml_node<char>* node;
+    if (hasChilds()) {
+        node = doc.allocate_node(rapidxml::node_element, qPrintable(mName), 0);
+        foreach (XmlDomElement* child, mChilds) {
+            node->append_node(child->toRapidXmlNode(doc));
+        }
+    } else if (!mText.isNull()) {
+        node = doc.allocate_node(rapidxml::node_element, qPrintable(mName), qPrintable(mText));
+    }
+    foreach (const QString& key, mAttributes.keys()) {
+        node->append_attribute(doc.allocate_attribute(qPrintable(key), qPrintable(mAttributes[key])));
+    }
+    Q_ASSERT(node);
+    return node;
 }
 
 /*****************************************************************************************

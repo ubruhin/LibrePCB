@@ -21,6 +21,9 @@
  *  Includes
  ****************************************************************************************/
 #include <QtCore>
+#include <sstream>
+#include <rapidxml.hpp>
+#include <rapidxml_print.hpp>
 #include "xmldomdocument.h"
 #include "xmldomelement.h"
 
@@ -91,11 +94,11 @@ XmlDomElement& XmlDomDocument::getRoot(const QString& expectedName) const throw 
 
 QByteArray XmlDomDocument::toByteArray() const noexcept
 {
-    QDomDocument doc;
-    doc.implementation().setInvalidDataPolicy(QDomImplementation::ReturnNullNode);
-    doc.setContent(QString("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"));
-    doc.appendChild(mRootElement->toQDomElement(doc));
-    return doc.toByteArray(1); // indent only 1 space to save disk space
+    rapidxml::xml_document<char> doc;
+    doc.append_node(mRootElement->toRapidXmlNode(doc));
+    std::stringstream s;
+    s << doc;
+    return QByteArray(s.str().data(), s.str().size());
 }
 
 /*****************************************************************************************

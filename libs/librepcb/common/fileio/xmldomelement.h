@@ -31,6 +31,13 @@
 /*****************************************************************************************
  *  Namespace / Forward Declarations
  ****************************************************************************************/
+namespace rapidxml {
+template<class Ch>
+class xml_document;
+template<class Ch>
+class xml_node;
+}
+
 namespace librepcb {
 
 class XmlDomDocument;
@@ -437,6 +444,8 @@ class XmlDomElement final
          */
         static XmlDomElement* fromQDomElement(QDomElement domElement, XmlDomDocument* doc = nullptr) noexcept;
 
+        rapidxml::xml_node<char>* toRapidXmlNode(rapidxml::xml_document<char>& doc) const noexcept;
+
 
     private:
 
@@ -481,7 +490,7 @@ class XmlDomElement final
         QString mName;              ///< the tag name of this element
         QString mText;              ///< the text of this element (only if there are no childs)
         QList<XmlDomElement*> mChilds;      ///< all child elements (only if there is no text)
-        QHash<QString, QString> mAttributes;///< all attributes of this element (key, value) in arbitrary order
+        QMap<QString, QString> mAttributes;///< all attributes of this element (key, value) in arbitrary order
 };
 
 /*****************************************************************************************
