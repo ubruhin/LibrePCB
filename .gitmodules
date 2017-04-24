@@ -10,3 +10,6 @@
 [submodule "libs/googletest"]
 	path = libs/googletest
 	url = https://github.com/LibrePCB/googletest.git
+[submodule "libs/rapidxml"]
+	path = libs/rapidxml
+	url = https://github.com/LibrePCB/rapidxml.git
