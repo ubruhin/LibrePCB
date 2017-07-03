@@ -254,6 +254,9 @@ QSet<Uuid> WorkspaceLibraryDb::getDevicesOfComponent(const Uuid& component) cons
 
 void WorkspaceLibraryDb::startLibraryRescan() noexcept
 {
+    if (mLibraryScanner->isRunning()) {
+        mLibraryScanner->abort();
+    }
     mLibraryScanner->start();
 }
 

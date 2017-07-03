@@ -68,6 +68,9 @@ class WorkspaceLibraryScanner final : public QThread
         WorkspaceLibraryScanner(const WorkspaceLibraryScanner& other) = delete;
         ~WorkspaceLibraryScanner() noexcept;
 
+        // General Methods
+        bool abort() noexcept;
+
         // Operator Overloadings
         WorkspaceLibraryScanner& operator=(const WorkspaceLibraryScanner& rhs) = delete;
 

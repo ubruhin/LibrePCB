@@ -45,14 +45,25 @@ WorkspaceLibraryScanner::WorkspaceLibraryScanner(Workspace& ws) noexcept :
 
 WorkspaceLibraryScanner::~WorkspaceLibraryScanner() noexcept
 {
+    abort();
+}
+
+/*****************************************************************************************
+ *  General Methods
+ ****************************************************************************************/
+
+bool WorkspaceLibraryScanner::abort() noexcept
+{
     mAbort = true;
     if (!wait(2000)) {
         qWarning() << "Could not abort the library scanner worker thread!";
         terminate();
         if (!wait(2000)) {
             qCritical() << "Could not terminate the library scanner worker thread!";
+            return false;
         }
     }
+    return true;
 }
 
 /*****************************************************************************************
