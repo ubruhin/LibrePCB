@@ -82,7 +82,12 @@ bool PackageEditorState_DrawTextBase::entry() noexcept
         textComboBox->setEditable(true);
         textComboBox->addItem("#NAME");
         textComboBox->addItem("#VALUE");
+        textComboBox->addItem("#BOARD");
         textComboBox->addItem("#PROJECT");
+        textComboBox->addItem("#AUTHOR");
+        textComboBox->addItem("#VERSION");
+        textComboBox->addItem("#CREATED");
+        textComboBox->addItem("#MODIFIED");
         textComboBox->setCurrentIndex(textComboBox->findText(mLastText));
         connect(textComboBox.get(), &QComboBox::currentTextChanged,
                 this, &PackageEditorState_DrawTextBase::textComboBoxValueChanged);

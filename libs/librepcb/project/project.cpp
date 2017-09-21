@@ -547,25 +547,37 @@ void Project::save(bool toOriginal)
 }
 
 /*****************************************************************************************
- *  Helper Methods
+ *  Inherited from AttributeProvider
  ****************************************************************************************/
 
-bool Project::getAttributeValue(const QString& attrKey, bool passToParents, QString& value) const noexcept
+QString Project::getUserDefinedAttributeValue(const QString& key) const noexcept
 {
-    Q_UNUSED(passToParents);
+    if (std::shared_ptr<Attribute> attr = mAttributes->find(key)) {
+        return attr->getValueTr(true);
+    }  else {
+        return QString();
+    }
+}
 
-    if (attrKey == QLatin1String("PROJECT"))
-        return value = mName, true;
-    else if (attrKey == QLatin1String("AUTHOR"))
-        return value = mAuthor, true;
-    else if (attrKey == QLatin1String("CREATED"))
-        return value = mCreated.toString(Qt::SystemLocaleShortDate), true;
-    else if (attrKey == QLatin1String("MODIFIED"))
-        return value = mLastModified.toString(Qt::SystemLocaleShortDate), true;
-    else if (mAttributes->contains(attrKey))
-        return value = mAttributes->find(attrKey)->getValueTr(true), true;
-    else
-        return false;
+QString Project::getBuiltInAttributeValue(const QString& key) const noexcept
+{
+    if (key == QLatin1String("PROJECT")) {
+        return mName;
+    } else if (key == QLatin1String("AUTHOR")) {
+        return mAuthor;
+    } else if (key == QLatin1String("VERSION")) {
+        return mVersion;
+    } else if (key == QLatin1String("CREATED")) {
+        return mCreated.toString(Qt::SystemLocaleShortDate);
+    } else if (key == QLatin1String("MODIFIED")) {
+        return mLastModified.toString(Qt::SystemLocaleShortDate);
+    } else if (key == QLatin1String("PAGES")) {
+        return QString::number(mSchematics.count());
+    } else if (key == QLatin1String("PAGEXY")) {
+        return "Page #PAGE of #PAGES"; // TODO: make this constant!!!
+    } else {
+        return QString();
+    }
 }
 
 /*****************************************************************************************

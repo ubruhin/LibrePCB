@@ -84,11 +84,14 @@ bool SymbolEditorState_DrawTextBase::entry() noexcept
         textComboBox->addItem("#NAME");
         textComboBox->addItem("#VALUE");
         textComboBox->addItem("#SHEET");
-        textComboBox->addItem("#AUTHOR");
-        textComboBox->addItem("#MODIFIED");
         textComboBox->addItem("#PAGE");
         textComboBox->addItem("#PAGES");
+        textComboBox->addItem("#PAGEXY");
         textComboBox->addItem("#PROJECT");
+        textComboBox->addItem("#AUTHOR");
+        textComboBox->addItem("#VERSION");
+        textComboBox->addItem("#CREATED");
+        textComboBox->addItem("#MODIFIED");
         textComboBox->setCurrentIndex(textComboBox->findText(mLastText));
         connect(textComboBox.get(), &QComboBox::currentTextChanged,
                 this, &SymbolEditorState_DrawTextBase::textComboBoxValueChanged);
