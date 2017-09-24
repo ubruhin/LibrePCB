@@ -25,6 +25,7 @@
 #include "si_netline.h"
 #include "si_symbol.h"
 #include "si_symbolpin.h"
+#include "si_netsegment.h"
 #include "../schematic.h"
 #include "../../project.h"
 #include "../../circuit/circuit.h"
@@ -44,8 +45,8 @@ namespace project {
  *  Constructors / Destructor
  ****************************************************************************************/
 
-SI_NetPoint::SI_NetPoint(Schematic& schematic, const DomElement& domElement) :
-    SI_Base(schematic), mNetSignal(nullptr), mSymbolPin(nullptr)
+SI_NetPoint::SI_NetPoint(SI_NetSegment& segment, const DomElement& domElement) :
+    SI_Base(segment.getSchematic()), mNetSegment(segment), mSymbolPin(nullptr)
 {
     // read attributes
     mUuid = domElement.getAttribute<Uuid>("uuid", true);
@@ -62,19 +63,8 @@ SI_NetPoint::SI_NetPoint(Schematic& schematic, const DomElement& domElement) :
             throw RuntimeError(__FILE__, __LINE__,
                 QString(tr("Invalid symbol pin UUID: \"%1\"")).arg(pinUuid.toStr()));
         }
-        mNetSignal = mSymbolPin->getCompSigInstNetSignal();
-        if (!mNetSignal) {
-            throw RuntimeError(__FILE__, __LINE__, QString(tr("The pin "
-                "of the netpoint \"%1\" has no netsignal.")).arg(mUuid.toStr()));
-        }
         mPosition = mSymbolPin->getPosition();
     } else {
-        Uuid netSignalUuid = domElement.getAttribute<Uuid>("netsignal", true);
-        mNetSignal = mSchematic.getProject().getCircuit().getNetSignalByUuid(netSignalUuid);
-        if(!mNetSignal) {
-            throw RuntimeError(__FILE__, __LINE__,
-                QString(tr("Invalid net signal UUID: \"%1\"")).arg(netSignalUuid.toStr()));
-        }
         mPosition.setX(domElement.getAttribute<Length>("x", true));
         mPosition.setY(domElement.getAttribute<Length>("y", true));
     }
@@ -82,16 +72,16 @@ SI_NetPoint::SI_NetPoint(Schematic& schematic, const DomElement& domElement) :
     init();
 }
 
-SI_NetPoint::SI_NetPoint(Schematic& schematic, NetSignal& netsignal, const Point& position) :
-    SI_Base(schematic), mUuid(Uuid::createRandom()), mPosition(position),
-    mNetSignal(&netsignal), mSymbolPin(nullptr)
+SI_NetPoint::SI_NetPoint(SI_NetSegment& segment, const Point& position) :
+    SI_Base(segment.getSchematic()), mNetSegment(segment), mUuid(Uuid::createRandom()),
+    mPosition(position), mSymbolPin(nullptr)
 {
     init();
 }
 
-SI_NetPoint::SI_NetPoint(Schematic& schematic, NetSignal& netsignal, SI_SymbolPin& pin) :
-    SI_Base(schematic), mUuid(Uuid::createRandom()), mPosition(pin.getPosition()),
-    mNetSignal(&netsignal), mSymbolPin(&pin)
+SI_NetPoint::SI_NetPoint(SI_NetSegment& segment, SI_SymbolPin& pin) :
+    SI_Base(segment.getSchematic()), mNetSegment(segment), mUuid(Uuid::createRandom()),
+    mPosition(pin.getPosition()), mSymbolPin(&pin)
 {
     init();
 }
@@ -136,29 +126,14 @@ bool SI_NetPoint::isOpenLineEnd() const noexcept
     return ((mRegisteredLines.count() <= 1) && (!isAttachedToPin()));
 }
 
+NetSignal& SI_NetPoint::getNetSignalOfNetSegment() const noexcept
+{
+    return mNetSegment.getNetSignal();
+}
+
 /*****************************************************************************************
  *  Setters
  ****************************************************************************************/
-
-void SI_NetPoint::setNetSignal(NetSignal& netsignal)
-{
-    if (&netsignal == mNetSignal) {
-        return;
-    }
-    if ((isUsed()) || (netsignal.getCircuit() != getCircuit())) {
-        throw LogicError(__FILE__, __LINE__);
-    }
-    if (isAddedToSchematic()) {
-        if (isAttachedToPin()) {
-            throw LogicError(__FILE__, __LINE__);
-        }
-        mNetSignal->unregisterSchematicNetPoint(*this); // can throw
-        auto sg = scopeGuard([&](){mNetSignal->registerSchematicNetPoint(*this);});
-        netsignal.registerSchematicNetPoint(*this); // can throw
-        sg.dismiss();
-    }
-    mNetSignal = &netsignal;
-}
 
 void SI_NetPoint::setPinToAttach(SI_SymbolPin* pin)
 {
@@ -177,7 +152,7 @@ void SI_NetPoint::setPinToAttach(SI_SymbolPin* pin)
         }
         if (pin) {
             // attach to new pin
-            if (pin->getCompSigInstNetSignal() != mNetSignal) {
+            if (pin->getCompSigInstNetSignal() != &mNetSegment.getNetSignal()) {
                 throw LogicError(__FILE__, __LINE__);
             }
             pin->registerNetPoint(*this); // can throw
@@ -203,49 +178,44 @@ void SI_NetPoint::setPosition(const Point& position) noexcept
  *  General Methods
  ****************************************************************************************/
 
-void SI_NetPoint::addToSchematic(GraphicsScene& scene)
+void SI_NetPoint::addToSchematic()
 {
     if (isAddedToSchematic() || isUsed()) {
         throw LogicError(__FILE__, __LINE__);
     }
-    ScopeGuardList sgl;
-    mNetSignal->registerSchematicNetPoint(*this); // can throw
-    sgl.add([&](){mNetSignal->unregisterSchematicNetPoint(*this);});
+
     if (isAttachedToPin()) {
         // check if mNetSignal is correct (would be a bug if not)
-        if (mSymbolPin->getCompSigInstNetSignal() != mNetSignal) {
+        if (mSymbolPin->getCompSigInstNetSignal() != &mNetSegment.getNetSignal()) {
             throw LogicError(__FILE__, __LINE__);
         }
         mSymbolPin->registerNetPoint(*this); // can throw
-        sgl.add([&](){mSymbolPin->unregisterNetPoint(*this);});
     }
-    mHighlightChangedConnection = connect(mNetSignal, &NetSignal::highlightedChanged,
+
+    mHighlightChangedConnection = connect(&getNetSignalOfNetSegment(),
+                                          &NetSignal::highlightedChanged,
                                           [this](){mGraphicsItem->update();});
     mErcMsgDeadNetPoint->setVisible(true);
-    SI_Base::addToSchematic(scene, *mGraphicsItem);
-    sgl.dismiss();
+    SI_Base::addToSchematic(mGraphicsItem.data());
 }
 
-void SI_NetPoint::removeFromSchematic(GraphicsScene& scene)
+void SI_NetPoint::removeFromSchematic()
 {
     if ((!isAddedToSchematic()) || isUsed()) {
         throw LogicError(__FILE__, __LINE__);
     }
-    ScopeGuardList sgl;
+
     if (isAttachedToPin()) {
         // check if mNetSignal is correct (would be a bug if not)
-        if (mSymbolPin->getCompSigInstNetSignal() != mNetSignal) {
+        if (mSymbolPin->getCompSigInstNetSignal() != &mNetSegment.getNetSignal()) {
             throw LogicError(__FILE__, __LINE__);
         }
         mSymbolPin->unregisterNetPoint(*this); // can throw
-        sgl.add([&](){mSymbolPin->registerNetPoint(*this);});
     }
-    mNetSignal->unregisterSchematicNetPoint(*this); // can throw
-    sgl.add([&](){mNetSignal->registerSchematicNetPoint(*this);});
+
     disconnect(mHighlightChangedConnection);
     mErcMsgDeadNetPoint->setVisible(false);
-    SI_Base::removeFromSchematic(scene, *mGraphicsItem);
-    sgl.dismiss();
+    SI_Base::removeFromSchematic(mGraphicsItem.data());
 }
 
 void SI_NetPoint::registerNetLine(SI_NetLine& netline)
@@ -284,7 +254,6 @@ void SI_NetPoint::serialize(DomElement& root) const
     if (!checkAttributesValidity()) throw LogicError(__FILE__, __LINE__);
 
     root.setAttribute("uuid", mUuid);
-    root.setAttribute("netsignal", mNetSignal->getUuid());
     root.setAttribute("attached", isAttachedToPin());
     if (isAttachedToPin()) {
         root.setAttribute("symbol", mSymbolPin->getSymbol().getUuid());
@@ -317,8 +286,7 @@ void SI_NetPoint::setSelected(bool selected) noexcept
 bool SI_NetPoint::checkAttributesValidity() const noexcept
 {
     if (mUuid.isNull())                             return false;
-    if (mNetSignal == nullptr)                      return false;
-    if (isAttachedToPin() && (mNetSignal != mSymbolPin->getCompSigInstNetSignal())) return false;
+    if (isAttachedToPin() && (&mNetSegment.getNetSignal() != mSymbolPin->getCompSigInstNetSignal())) return false;
     return true;
 }
 

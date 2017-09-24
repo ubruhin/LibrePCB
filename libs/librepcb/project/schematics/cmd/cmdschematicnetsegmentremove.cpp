@@ -21,9 +21,9 @@
  *  Includes
  ****************************************************************************************/
 #include <QtCore>
-#include "cmdschematicnetlineadd.h"
+#include "cmdschematicnetsegmentremove.h"
 #include "../schematic.h"
-#include "../items/si_netline.h"
+#include "../items/si_netsegment.h"
 
 /*****************************************************************************************
  *  Namespace
@@ -35,21 +35,13 @@ namespace project {
  *  Constructors / Destructor
  ****************************************************************************************/
 
-CmdSchematicNetLineAdd::CmdSchematicNetLineAdd(SI_NetLine& netline) noexcept :
-    UndoCommand(tr("Add netline")),
-    mSchematic(netline.getSchematic()), mStartPoint(netline.getStartPoint()),
-    mEndPoint(netline.getEndPoint()), mNetLine(&netline)
+CmdSchematicNetSegmentRemove::CmdSchematicNetSegmentRemove(SI_NetSegment& segment) noexcept :
+    UndoCommand(tr("Remove net segment")),
+    mSchematic(segment.getSchematic()), mNetSegment(segment)
 {
 }
 
-CmdSchematicNetLineAdd::CmdSchematicNetLineAdd(Schematic& schematic, SI_NetPoint& startPoint,
-                                               SI_NetPoint& endPoint) noexcept :
-    UndoCommand(tr("Add netline")),
-    mSchematic(schematic), mStartPoint(startPoint), mEndPoint(endPoint), mNetLine(nullptr)
-{
-}
-
-CmdSchematicNetLineAdd::~CmdSchematicNetLineAdd() noexcept
+CmdSchematicNetSegmentRemove::~CmdSchematicNetSegmentRemove() noexcept
 {
 }
 
@@ -57,26 +49,21 @@ CmdSchematicNetLineAdd::~CmdSchematicNetLineAdd() noexcept
  *  Inherited from UndoCommand
  ****************************************************************************************/
 
-bool CmdSchematicNetLineAdd::performExecute()
+bool CmdSchematicNetSegmentRemove::performExecute()
 {
-    if (!mNetLine) {
-        // create new netline
-        mNetLine = new SI_NetLine(mSchematic, mStartPoint, mEndPoint, Length(158750)); // can throw
-    }
-
     performRedo(); // can throw
 
     return true;
 }
 
-void CmdSchematicNetLineAdd::performUndo()
+void CmdSchematicNetSegmentRemove::performUndo()
 {
-    mSchematic.removeNetLine(*mNetLine); // can throw
+    mSchematic.addNetSegment(mNetSegment); // can throw
 }
 
-void CmdSchematicNetLineAdd::performRedo()
+void CmdSchematicNetSegmentRemove::performRedo()
 {
-    mSchematic.addNetLine(*mNetLine); // can throw
+    mSchematic.removeNetSegment(mNetSegment); // can throw
 }
 
 /*****************************************************************************************

@@ -37,6 +37,7 @@ namespace project {
 class Circuit;
 class Schematic;
 class NetSignal;
+class SI_NetSegment;
 
 /*****************************************************************************************
  *  Class SI_NetLabel
@@ -54,23 +55,23 @@ class SI_NetLabel final : public SI_Base, public SerializableObject
         // Constructors / Destructor
         SI_NetLabel() = delete;
         SI_NetLabel(const SI_NetLabel& other) = delete;
-        explicit SI_NetLabel(Schematic& schematic, const DomElement& domElement);
-        explicit SI_NetLabel(Schematic& schematic, NetSignal& netsignal, const Point& position);
+        SI_NetLabel(SI_NetSegment& segment, const DomElement& domElement);
+        SI_NetLabel(SI_NetSegment& segment, const Point& position);
         ~SI_NetLabel() noexcept;
 
         // Getters
         const Uuid& getUuid() const noexcept {return mUuid;}
         const Angle& getRotation() const noexcept {return mRotation;}
-        NetSignal& getNetSignal() const noexcept {return *mNetSignal;}
+        SI_NetSegment& getNetSegment() const noexcept {return mNetSegment;}
+        NetSignal& getNetSignalOfNetSegment() const noexcept;
 
         // Setters
-        void setNetSignal(NetSignal& netsignal) noexcept;
         void setPosition(const Point& position) noexcept;
         void setRotation(const Angle& rotation) noexcept;
 
         // General Methods
-        void addToSchematic(GraphicsScene& scene) override;
-        void removeFromSchematic(GraphicsScene& scene) override;
+        void addToSchematic() override;
+        void removeFromSchematic() override;
 
         /// @copydoc librepcb::SerializableObject::serialize()
         void serialize(DomElement& root) const override;
@@ -85,11 +86,6 @@ class SI_NetLabel final : public SI_Base, public SerializableObject
         SI_NetLabel& operator=(const SI_NetLabel& rhs) = delete;
 
 
-    private slots:
-
-        void netSignalNameChanged(const QString& newName) noexcept;
-
-
     private:
 
         void init();
@@ -101,10 +97,10 @@ class SI_NetLabel final : public SI_Base, public SerializableObject
         QMetaObject::Connection mHighlightChangedConnection;
 
         // Attributes
+        SI_NetSegment& mNetSegment;
         Uuid mUuid;
         Point mPosition;
         Angle mRotation;
-        NetSignal* mNetSignal;
 };
 
 /*****************************************************************************************

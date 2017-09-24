@@ -17,14 +17,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H
-#define LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H
+#ifndef LIBREPCB_PROJECT_CMDSCHEMATICNETSEGMENTEDIT_H
+#define LIBREPCB_PROJECT_CMDSCHEMATICNETSEGMENTEDIT_H
 
 /*****************************************************************************************
  *  Includes
  ****************************************************************************************/
 #include <QtCore>
 #include <librepcb/common/undocommand.h>
+#include <librepcb/common/units/point.h>
 
 /*****************************************************************************************
  *  Namespace / Forward Declarations
@@ -32,23 +33,26 @@
 namespace librepcb {
 namespace project {
 
-class Schematic;
-class SI_NetLine;
+class SI_NetSegment;
+class NetSignal;
 
 /*****************************************************************************************
- *  Class CmdSchematicNetLineRemove
+ *  Class CmdSchematicNetSegmentEdit
  ****************************************************************************************/
 
 /**
- * @brief The CmdSchematicNetLineRemove class
+ * @brief The CmdSchematicNetSegmentEdit class
  */
-class CmdSchematicNetLineRemove final : public UndoCommand
+class CmdSchematicNetSegmentEdit final : public UndoCommand
 {
     public:
 
         // Constructors / Destructor
-        explicit CmdSchematicNetLineRemove(SI_NetLine& netline) noexcept;
-        ~CmdSchematicNetLineRemove() noexcept;
+        explicit CmdSchematicNetSegmentEdit(SI_NetSegment& netsegment) noexcept;
+        ~CmdSchematicNetSegmentEdit() noexcept;
+
+        // Setters
+        void setNetSignal(NetSignal& netsignal) noexcept;
 
 
     private:
@@ -67,8 +71,12 @@ class CmdSchematicNetLineRemove final : public UndoCommand
 
         // Private Member Variables
 
-        Schematic& mSchematic;
-        SI_NetLine& mNetLine;
+        // Attributes from the constructor
+        SI_NetSegment& mNetSegment;
+
+        // General Attributes
+        NetSignal* mOldNetSignal;
+        NetSignal* mNewNetSignal;
 };
 
 /*****************************************************************************************
@@ -78,4 +86,4 @@ class CmdSchematicNetLineRemove final : public UndoCommand
 } // namespace project
 } // namespace librepcb
 
-#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETLINEREMOVE_H
+#endif // LIBREPCB_PROJECT_CMDSCHEMATICNETSEGMENTEDIT_H
