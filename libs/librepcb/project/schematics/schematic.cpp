@@ -84,8 +84,6 @@ Schematic::Schematic(Project& project, const FilePath& filepath, bool restore,
             // Load grid properties
             mGridProperties.reset(new GridProperties(*root.getFirstChild("grid", true)));
 
-            tmp_upgradeFileFormat(root);
-
             // Load all symbols
             foreach (const DomElement* node, root.getChilds("symbol")) {
                 SI_Symbol* symbol = new SI_Symbol(*this, *node);
@@ -137,118 +135,6 @@ Schematic::~Schematic() noexcept
     mGridProperties.reset();
     mXmlFile.reset();
     mGraphicsScene.reset();
-}
-
-void Schematic::tmp_upgradeFileFormat(DomElement& root)
-{
-    while (DomElement* netPoint = tmp_getNextNetPoint(root)) {
-        Uuid netPointUuid = netPoint->getAttribute<Uuid>("uuid", true);
-        Uuid netSignalUuid = netPoint->getAttribute<Uuid>("netsignal", true);
-        DomElement* netsegment = tmp_createNewNetSegment(root, netSignalUuid);
-        QList<DomElement*> lines;
-        QList<DomElement*> points({netPoint});
-        tmp_getNetLinesAndNetPoints(root, netPointUuid, lines, points);
-
-        foreach (DomElement* p, points) {
-            netsegment->appendChild(p);
-        }
-        foreach (DomElement* l, lines) {
-            netsegment->appendChild(l);
-        }
-    }
-    Q_ASSERT(!root.getFirstChild("netpoint", false));
-    Q_ASSERT(!root.getFirstChild("netline", false));
-
-    while (DomElement* netLabel = tmp_getNextNetLabel(root)) {
-        Point labelPos(netLabel->getAttribute<Length>("x", true),
-                       netLabel->getAttribute<Length>("y", true));
-        Uuid labelSignal = netLabel->getAttribute<Uuid>("netsignal", true);
-
-        DomElement* nearestSegment = nullptr;
-        Length nearestSegmentDistance;
-        for (DomElement* node = root.getFirstChild("netsegment", false);
-             node; node = node->getNextSibling("netsegment"))
-        {
-            Uuid segmentSignal = node->getAttribute<Uuid>("netsignal", true);
-            if (segmentSignal != labelSignal) continue;
-            for (DomElement* node2 = node->getFirstChild("netpoint", true, false);
-                 node2; node2 = node2->getNextSibling("netpoint"))
-            {
-                if (node2->getAttribute<bool>("attached", true) == false) {
-                    Point pos = Point(node2->getAttribute<Length>("x", true),
-                                      node2->getAttribute<Length>("y", true));
-                    Length distance = (pos - labelPos).getLength();
-                    if ((!nearestSegment) || (distance < nearestSegmentDistance)) {
-                        nearestSegment = node;
-                        nearestSegmentDistance = distance;
-                    }
-                }
-            }
-        }
-        nearestSegment->appendChild(netLabel);
-    }
-}
-
-DomElement* Schematic::tmp_getNextNetPoint(DomElement& root)
-{
-    DomElement* nextNetPoint = root.getFirstChild("netpoint", false);
-    if (nextNetPoint) root.removeChild(nextNetPoint, false);
-    return nextNetPoint;
-}
-
-void Schematic::tmp_getNetLinesAndNetPoints(DomElement& root, const Uuid& netpoint,
-                                            QList<DomElement*>& lines,
-                                            QList<DomElement*>& points)
-{
-    for (DomElement* node = root.getFirstChild("netline", false);
-         node; node = node->getNextSibling("netline"))
-    {
-        Uuid startPoint = node->getAttribute<Uuid>("start_point", true);
-        Uuid endPoint = node->getAttribute<Uuid>("end_point", true);
-        if (startPoint == netpoint) {
-            points.append(tmp_getNetPointByUuid(root, endPoint));
-            lines.append(node);
-            root.removeChild(node, false);
-            tmp_getNetLinesAndNetPoints(root, endPoint, lines, points);
-            node = root.getFirstChild("netline", false);
-        } else if (endPoint == netpoint) {
-            points.append(tmp_getNetPointByUuid(root, startPoint));
-            lines.append(node);
-            root.removeChild(node, false);
-            tmp_getNetLinesAndNetPoints(root, startPoint, lines, points);
-            node = root.getFirstChild("netline", false);
-        }
-        if (!node) break;
-    }
-}
-
-DomElement* Schematic::tmp_getNextNetLabel(DomElement& root)
-{
-    DomElement* nextNetLabel = root.getFirstChild("netlabel", false);
-    if (nextNetLabel) root.removeChild(nextNetLabel, false);
-    return nextNetLabel;
-}
-
-DomElement* Schematic::tmp_createNewNetSegment(DomElement& root, const Uuid& netsignal)
-{
-    DomElement* segment = root.appendChild("netsegment");
-    segment->setAttribute("uuid", Uuid::createRandom());
-    segment->setAttribute("netsignal", netsignal);
-    return segment;
-}
-
-DomElement* Schematic::tmp_getNetPointByUuid(DomElement& root, const Uuid& netpoint)
-{
-    for (DomElement* node = root.getFirstChild("netpoint", false);
-         node; node = node->getNextSibling("netpoint"))
-    {
-        Uuid uuid = node->getAttribute<Uuid>("uuid", true);
-        if (uuid == netpoint) {
-            root.removeChild(node, false);
-            return node;
-        }
-    }
-    return nullptr;
 }
 
 /*****************************************************************************************

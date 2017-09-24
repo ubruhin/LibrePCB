@@ -31,9 +31,6 @@
 #include "../../project.h"
 #include "../../circuit/netsignal.h"
 
-#include "../items/si_netpoint.h"
-#include <librepcb/common/units/all_length_units.h>
-
 /*****************************************************************************************
  *  Namespace
  ****************************************************************************************/
@@ -141,10 +138,6 @@ void SGI_NetLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
         painter->setBrush(QBrush(layer->getColor(highlight), Qt::Dense5Pattern));
         painter->drawRect(mBoundingRect);
     }
-
-    // REMOVE ME!
-    painter->setPen(QPen(Qt::red));
-    painter->drawLine(QPointF(0, 0), mNetLabel.getNetSegment().getNetPoints().first()->getPosition().toPxQPointF() - pos());
 
 #ifdef QT_DEBUG
     layer = getLayer(GraphicsLayer::sDebugGraphicsItemsBoundingRects); Q_ASSERT(layer);

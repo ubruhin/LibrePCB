@@ -110,15 +110,6 @@ class Schematic final : public QObject, public AttributeProvider,
             Schematic(project, filepath, restore, readOnly, false, QString()) {}
         ~Schematic() noexcept;
 
-        void tmp_upgradeFileFormat(DomElement& root);
-        DomElement* tmp_getNextNetPoint(DomElement& root);
-        void tmp_getNetLinesAndNetPoints(DomElement& root, const Uuid& netpoint,
-                                         QList<DomElement*>& lines, QList<DomElement*>& points);
-        DomElement* tmp_getNextNetLabel(DomElement& root);
-        DomElement* tmp_createNewNetSegment(DomElement& root, const Uuid& netsignal);
-        DomElement* tmp_getNetPointByUuid(DomElement& root, const Uuid& netpoint);
-        Uuid tmp_getNetSignalOfNetPoint(DomElement& root, DomElement& netpoint);
-
         // Getters: General
         Project& getProject() const noexcept {return mProject;}
         const FilePath& getFilePath() const noexcept {return mFilePath;}
